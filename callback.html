@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Connecting...</title>
+  <style>
+    body { background: #0a0a0a; color: #f0f0f0; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #2a2a2a; border-top-color: #00e5a0; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <p>Connecting to QuickBooks...</p>
+  <script>
+    // Forward all URL params back to the main app
+    const params = window.location.search;
+    window.location.href = 'index.html' + params;
+  </script>
+</body>
+</html>
