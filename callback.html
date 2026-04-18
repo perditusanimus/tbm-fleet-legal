@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Connecting...</title>
+  <style>
+    body { background: #0a0a0a; color: #f0f0f0; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #2a2a2a; border-top-color: #00e5a0; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #666; font-size: 14px; }
+    .error { color: #ff4d4d; font-size: 14px; max-width: 400px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="spinner" id="spinner"></div>
+  <p id="status">Connecting to QuickBooks...</p>
+
+  <script>
+    const WORKER = 'https://tbm-fleet-auth.mikasafanboy101.workers.dev/';
+
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const realmId = params.get('realmId');
+
+      if (!code || !realmId) {
+        // No OAuth params — just redirect to main app
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // Load saved credentials
+      const saved = localStorage.getItem('tbm_credentials');
+      if (!saved) {
+        document.getElementById('status').textContent = 'Session expired — redirecting...';
+        setTimeout(() => window.location.href = 'index.html', 1500);
+        return;
+      }
+
+      const credentials = JSON.parse(saved);
+
+      // Save realmId into credentials
+      credentials.realmId = realmId;
+      localStorage.setItem('tbm_credentials', JSON.stringify(credentials));
+
+      try {
+        document.getElementById('status').textContent = 'Exchanging token...';
+
+        const redirectUri = window.location.origin + window.location.pathname;
+
+        const response = await fetch(WORKER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'auth',
+            code,
+            clientId: credentials.clientId,
+            clientSecret: credentials.clientSecret,
+            redirectUri,
+            grantType: 'authorization_code'
+          })
+        });
+
+        const rawText = await response.text();
+        let data;
+        try {
+          data = JSON.parse(rawText);
+        } catch(e) {
+          throw new Error('Intuit returned unexpected response: ' + rawText.substring(0, 100));
+        }
+
+        if (data.access_token) {
+          localStorage.setItem('tbm_access_token', data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem('tbm_refresh_token', data.refresh_token);
+          }
+          document.getElementById('status').textContent = '✓ Connected! Redirecting...';
+          window.location.href = 'index.html';
+        } else {
+          throw new Error(data.error_description || data.error || data.detail || 'Unknown error');
+        }
+
+      } catch(err) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent = 'Auth failed: ' + err.message + ' — redirecting back...';
+        console.error(err);
+        setTimeout(() => window.location.href = 'index.html', 3000);
+      }
+    }
+
+    handleCallback();
+  </script>
+</body>
+</html>
