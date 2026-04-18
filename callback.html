@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Connecting...</title>
+  <style>
+    body { background: #0a0a0a; color: #f0f0f0; font-family: sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; flex-direction: column; gap: 16px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid #2a2a2a; border-top-color: #00e5a0; border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    p { color: #666; font-size: 14px; }
+    .error { color: #ff4d4d; font-size: 14px; max-width: 400px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="spinner" id="spinner"></div>
+  <p id="status">Connecting to QuickBooks...</p>
+
+  <script>
+    const WORKER = 'https://tbm-fleet-auth.mikasafanboy101.workers.dev/';
+
+    function show(msg, color) {
+      document.getElementById('status').style.color = color || '#00e5a0';
+      document.getElementById('status').textContent = msg;
+    }
+
+    function showDetail(obj) {
+      const pre = document.createElement('pre');
+      pre.style.cssText = 'background:#111;padding:16px;border-radius:8px;font-size:11px;color:#f0f0f0;max-width:600px;overflow-wrap:break-word;white-space:pre-wrap;margin-top:16px;text-align:left;';
+      pre.textContent = JSON.stringify(obj, null, 2);
+      document.body.appendChild(pre);
+    }
+
+    async function handleCallback() {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const realmId = params.get('realmId');
+
+      if (!code || !realmId) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      const saved = localStorage.getItem('tbm_credentials');
+      if (!saved) {
+        show('No credentials found — redirecting...', '#ff4d4d');
+        setTimeout(() => window.location.href = 'index.html', 3000);
+        return;
+      }
+
+      const credentials = JSON.parse(saved);
+      credentials.realmId = realmId;
+      localStorage.setItem('tbm_credentials', JSON.stringify(credentials));
+
+      show('Exchanging token with Intuit...');
+
+      const redirectUri = window.location.origin + window.location.pathname;
+
+      try {
+        const response = await fetch(WORKER, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'auth',
+            code,
+            clientId: credentials.clientId,
+            clientSecret: credentials.clientSecret,
+            redirectUri,
+            grantType: 'authorization_code'
+          })
+        });
+
+        const data = await response.json();
+
+        if (data.access_token) {
+          localStorage.setItem('tbm_access_token', data.access_token);
+          if (data.refresh_token) localStorage.setItem('tbm_refresh_token', data.refresh_token);
+          show('✓ Connected! Redirecting...');
+          setTimeout(() => window.location.href = 'index.html', 1000);
+        } else {
+          document.getElementById('spinner').style.display = 'none';
+          show('Auth failed — see details below:', '#ff4d4d');
+          showDetail(data);
+          // Don't auto-redirect — let user read the error
+        }
+      } catch(err) {
+        document.getElementById('spinner').style.display = 'none';
+        show('Network error: ' + err.message, '#ff4d4d');
+      }
+    }
+
+    handleCallback();
+  </script>
