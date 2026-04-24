@@ -1,0 +1,2664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TBM Driver Database</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --surface2: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #00e5a0;
+      --accent2: #00b87a;
+      --danger: #ff4d4d;
+      --warning: #ffb347;
+      --blue: #4d9fff;
+      --text: #f0f0f0;
+      --muted: #666;
+      --card: #141414;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(0,229,160,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,160,0.02) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .app { position: relative; z-index: 1; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+    .logo span { color: var(--accent); }
+    .logo-sub { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 2px; letter-spacing: 0.5px; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 12px; }
+    .sync-badge {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'DM Mono', monospace; font-size: 11px;
+      color: var(--muted); background: var(--surface);
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+    }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    main { padding: 32px 40px; max-width: 1200px; margin: 0 auto; }
+
+    /* TABS */
+    .tabs { display: flex; gap: 4px; background: var(--surface2); padding: 4px; border-radius: 10px; margin-bottom: 28px; width: fit-content; }
+    .tab { padding: 9px 22px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); border: none; background: none; transition: all 0.2s; }
+    .tab.active { background: var(--accent); color: #000; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+
+    /* FINES */
+    .fine-row { display:grid; grid-template-columns:1fr 1.5fr 1fr 1fr 1fr 80px; gap:12px; padding:12px 16px; border-bottom:1px solid var(--border); align-items:center; font-size:13px; }
+    .fine-row:last-child { border-bottom:none; }
+    .fine-row.header { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; background:var(--surface2); }
+    .fine-status-paid { color:var(--accent); font-family:'DM Mono',monospace; font-size:11px; }
+    .fine-status-unpaid { color:var(--danger); font-family:'DM Mono',monospace; font-size:11px; }
+    .fines-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+    .fines-stat { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px; }
+    .fines-stat-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); text-transform:uppercase; margin-bottom:6px; }
+    .fines-stat-value { font-family:'Syne',sans-serif; font-size:22px; font-weight:700; }
+    .driver-fines-section { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+
+    /* CARDS */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+    /* SEARCH */
+    .search-big {
+      display: flex; gap: 12px; align-items: center;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 6px 6px 6px 20px;
+      margin-bottom: 20px;
+    }
+    .search-big input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: 16px; font-family: 'DM Sans', sans-serif; }
+    .search-big input::placeholder { color: var(--muted); }
+
+    /* BUTTONS */
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; text-decoration: none; }
+    .btn-primary { background: var(--accent); color: #000; }
+    .btn-primary:hover { background: var(--accent2); }
+    .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { border-color: var(--accent); }
+    .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); font-size: 12px; padding: 6px 12px; }
+    .btn-danger:hover { background: rgba(255,77,77,0.1); }
+    .btn-blue { background: var(--blue); color: #000; }
+    .btn-sm { padding: 7px 14px; font-size: 12px; }
+
+    /* FORM */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select, textarea {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 13px; outline: none;
+      transition: border-color 0.2s; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    select option { background: var(--surface2); }
+
+    /* DRIVER CARD */
+    .driver-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 20px; margin-bottom: 10px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 12px; align-items: center; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .driver-card:hover { border-color: var(--accent); }
+    .driver-card.active-driver { border-left: 3px solid var(--accent); }
+    .driver-card.ended-driver { border-left: 3px solid var(--muted); opacity: 0.7; }
+    .driver-name { font-weight: 600; font-size: 14px; }
+    .driver-meta { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .rego-pill {
+      font-family: 'DM Mono', monospace; font-size: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 5px; display: inline-block;
+    }
+    .date-range { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); }
+    .status-active { color: var(--accent); font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; }
+    .status-ended { color: var(--muted); font-family: 'DM Mono', monospace; font-size: 11px; }
+
+    /* FINE NOMINATION */
+    .nomination-card {
+      background: var(--surface2); border: 2px solid var(--accent);
+      border-radius: 12px; padding: 24px; margin-top: 20px;
+    }
+    .nomination-title {
+      font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700;
+      color: var(--accent); margin-bottom: 20px;
+    }
+    .nomination-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .nom-field { }
+    .nom-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .nom-value { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--text); font-weight: 500; }
+    .nom-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+    .copy-btn { cursor: pointer; background: none; border: 1px solid var(--border); color: var(--muted); font-size: 11px; font-family: 'DM Mono', monospace; padding: 3px 8px; border-radius: 4px; margin-left: 8px; transition: all 0.2s; }
+    .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* STATS */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .stat-box { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .stat-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .stat-val { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; }
+    .stat-val.green { color: var(--accent); }
+    .stat-val.red { color: var(--danger); }
+    .stat-val.blue { color: var(--blue); }
+
+    /* LOADING */
+    .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; padding: 40px; justify-content: center; }
+    .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty { text-align: center; padding: 48px; color: var(--muted); font-size: 14px; }
+
+    /* TOAST */
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; font-size: 14px; z-index: 500; display: none; animation: slideUp 0.3s ease; max-width: 320px; }
+    .toast.success { border-color: var(--accent); color: var(--accent); }
+    .toast.error { border-color: var(--danger); color: var(--danger); }
+    .toast.show { display: block; }
+    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); z-index: 200; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 620px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+    .modal-title { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; }
+    .close-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); width: 32px; height: 32px; border-radius: 6px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+    .close-btn:hover { color: var(--text); }
+
+    /* TABLE */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--border); background: var(--surface2); }
+    .data-table td { font-family: 'DM Mono', monospace; font-size: 12px; padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--surface2); }
+
+    .section-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div>
+      <div class="logo">TBM <span>DRIVERS</span></div>
+      <div class="logo-sub">Driver Database &amp; Fine Nomination</div>
+    </div>
+    <div class="header-right">
+      <div class="sync-badge">
+        <div class="sync-dot"></div>
+        <span>Google Sheets connected</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="loadAllData()">↻ Sync</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-label">Total Drivers</div><div class="stat-val" id="stat-total">—</div></div>
+      <div class="stat-box"><div class="stat-label">Active Now</div><div class="stat-val green" id="stat-active">—</div></div>
+      <div class="stat-box"><div class="stat-label">TBM / XE</div><div class="stat-val" id="stat-tbm-xe">—</div></div>
+      <div class="stat-box"><div class="stat-label">MKBAUS</div><div class="stat-val" style="color:var(--warning);" id="stat-mkbaus">—</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab" onclick="switchTab('lookup')">🔍 Fine Lookup</button>
+      <button class="tab" onclick="switchTab('drivers')">👤 All Drivers</button>
+      <button class="tab" onclick="switchTab('vehicle')">🔎 Vehicle Search</button>
+      <button class="tab" onclick="switchTab('cars')">🚗 Cars</button>
+      <button class="tab" onclick="switchTab('add')">+ Add Driver</button>
+      <button class="tab" onclick="switchTab('fines')">⚡ Fines</button>
+      <button class="tab" onclick="switchTab('settings')">⚙ Settings</button>
+      <button class="tab" onclick="switchTab('import')">⬇ Import from QB</button>
+    </div>
+
+    <!-- FINE LOOKUP TAB -->
+    <div id="tab-lookup" class="tab-content active">
+      <div class="card">
+        <div class="card-title">Fine Nomination Lookup</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">Enter the car rego and infringement date to instantly find who was driving and generate nomination details.</p>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>Vehicle Rego</label>
+            <input type="text" id="lookup-rego" placeholder="e.g. 2AE1IS" style="text-transform:uppercase;font-size:16px;" oninput="this.value=this.value.toUpperCase()" />
+          </div>
+          <div class="form-group">
+            <label>Infringement Date</label>
+            <input type="date" id="lookup-date" />
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="lookupFine()" style="width:100%;justify-content:center;">Find Driver →</button>
+      </div>
+
+      <div id="lookup-result"></div>
+    </div>
+
+    <!-- ALL DRIVERS TAB -->
+    <div id="tab-drivers" class="tab-content">
+      <div class="search-big">
+        <input type="text" id="driver-search" placeholder="Search by name, rego, licence number..." oninput="filterDrivers()" />
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <select id="fleet-filter" onchange="filterDrivers()" style="width:120px;padding:8px 12px;font-size:12px;">
+            <option value="all">All fleets</option>
+            <option value="TBM">TBM only</option>
+            <option value="XE">XE only</option>
+            <option value="MKBAUS">MKBAUS only</option>
+          </select>
+          <select id="status-filter" onchange="filterDrivers()" style="width:130px;padding:8px 12px;font-size:12px;">
+            <option value="all">All drivers</option>
+            <option value="active">Active only</option>
+            <option value="ended">Ended only</option>
+          </select>
+        </div>
+      </div>
+      <div id="drivers-list"><div class="loading"><div class="spinner"></div> Loading drivers...</div></div>
+    </div>
+
+    <!-- VEHICLE SEARCH TAB -->
+    <div id="tab-vehicle" class="tab-content">
+      <div class="card">
+        <div class="card-title">Vehicle Search</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;">
+          <input type="text" id="vehicle-search-input" placeholder="Enter rego (e.g. AZP599)" 
+            style="flex:1;padding:10px 14px;font-size:14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);text-transform:uppercase;"
+            oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')searchVehicle()" />
+          <button class="btn btn-primary" onclick="searchVehicle()" style="padding:10px 20px;">Search →</button>
+        </div>
+        <div id="vehicle-search-results"></div>
+      </div>
+    </div>
+
+    <!-- ADD DRIVER TAB -->
+    <div id="tab-add" class="tab-content">
+      <div class="card">
+        <div class="card-title">Add New Driver</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:20px;">Fill in the driver details. All fields marked * are required for fine nominations.</p>
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Driver Details</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="add-name" placeholder="e.g. ABUKAR HASSAN" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group">
+            <label>Phone *</label>
+            <input type="text" id="add-phone" placeholder="e.g. 0412 345 678" />
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="text" id="add-email" placeholder="e.g. driver@email.com" />
+          </div>
+          <div class="form-group">
+            <label>Date of Birth *</label>
+            <input type="date" id="add-dob" />
+          </div>
+        </div>
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Licence Details</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>Licence Number *</label>
+            <input type="text" id="add-licence" placeholder="e.g. 012345678" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group">
+            <label>Licence State *</label>
+            <select id="add-licence-state">
+              <option value="VIC">VIC</option>
+              <option value="NSW">NSW</option>
+              <option value="QLD">QLD</option>
+              <option value="WA">WA</option>
+              <option value="SA">SA</option>
+              <option value="TAS">TAS</option>
+              <option value="ACT">ACT</option>
+              <option value="NT">NT</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Address</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group full">
+            <label>Street Address *</label>
+            <input type="text" id="add-street" placeholder="e.g. U 20/74 Thomas St" />
+          </div>
+          <div class="form-group">
+            <label>Suburb *</label>
+            <input type="text" id="add-suburb" placeholder="e.g. South Morang" />
+          </div>
+          <div class="form-group">
+            <label>Postcode *</label>
+            <input type="text" id="add-postcode" placeholder="e.g. 3752" />
+          </div>
+        </div>
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Vehicle & Rental Details</div>
+        <div class="form-grid" style="margin-bottom:16px;">
+          <div class="form-group">
+            <label>Vehicle Rego *</label>
+            <input type="text" id="add-rego" placeholder="e.g. 2AE1IS" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" />
+          </div>
+          <div class="form-group">
+            <label>Fleet *</label>
+            <select id="add-fleet">
+              <option value="TBM">TBM</option>
+              <option value="XE">XE</option>
+              <option value="MKBAUS">MKBAUS Trust</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Start Date *</label>
+            <input type="date" id="add-start" />
+          </div>
+          <div class="form-group">
+            <label>Handoff Time (Pickup)</label>
+            <input type="time" id="add-handoff-time" />
+          </div>
+          <div class="form-group">
+            <label>Return Time (Drop-off)</label>
+            <input type="time" id="add-return-time" />
+          </div>
+          <div class="form-group">
+            <label>End Date (leave blank if active)</label>
+            <input type="date" id="add-end" />
+          </div>
+          <div class="form-group">
+            <label>Weekly Rent ($)</label>
+            <input type="number" id="add-rent" placeholder="e.g. 280" />
+          </div>
+          <div class="form-group">
+            <label>Rent Due Day</label>
+            <select id="add-rent-due">
+              <option value="">— Select day —</option>
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Bond ($)</label>
+            <input type="number" id="add-bond" placeholder="e.g. 500" />
+          </div>
+          <div class="form-group">
+            <label>Bank / Payment Method</label>
+            <input type="text" id="add-bank" placeholder="e.g. ANZ / CWB" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group">
+            <label>Reference (who referred them)</label>
+            <input type="text" id="add-reference" placeholder="e.g. Ahmed Hassan" />
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <textarea id="add-notes" rows="2" placeholder="Any additional notes..." style="resize:vertical;"></textarea>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="addDriver()" style="width:100%;justify-content:center;margin-top:4px;">
+          Save Driver to Database →
+        </button>
+      </div>
+    </div>
+  <!-- IMPORT TAB -->
+
+    <!-- FINES TAB -->
+    <div id="tab-fines" class="tab-content">
+      <div class="fines-stats">
+        <div class="fines-stat">
+          <div class="fines-stat-label">Total Fines</div>
+          <div class="fines-stat-value" id="fstat-total">0</div>
+        </div>
+        <div class="fines-stat">
+          <div class="fines-stat-label">Pending</div>
+          <div class="fines-stat-value" id="fstat-unpaid" style="color:var(--danger)">0</div>
+        </div>
+        <div class="fines-stat">
+          <div class="fines-stat-label">Total Amount</div>
+          <div class="fines-stat-value" id="fstat-amount" style="color:var(--warning)">$0</div>
+        </div>
+        <div class="fines-stat">
+          <div class="fines-stat-label">Pending Amount</div>
+          <div class="fines-stat-value" id="fstat-unpaid-amount" style="color:var(--danger)">$0</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">➕ Log New Fine</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Driver Name (search)</label>
+            <input type="text" id="fine-driver-search" placeholder="Start typing name..." oninput="searchFineDriver()" />
+            <div id="fine-driver-results" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;max-height:160px;overflow-y:auto;"></div>
+            <input type="hidden" id="fine-driver-name" />
+            <input type="hidden" id="fine-driver-rego" />
+          </div>
+          <div class="form-group">
+            <label>Vehicle Rego</label>
+            <input type="text" id="fine-rego-display" placeholder="Auto-filled or type rego" oninput="document.getElementById('fine-driver-rego').value=this.value.toUpperCase();this.value=this.value.toUpperCase();" />
+          </div>
+          <div class="form-group">
+            <label>Infringement Date</label>
+            <input type="date" id="fine-date" />
+          </div>
+          <div class="form-group">
+            <label>Fine Amount ($)</label>
+            <input type="number" id="fine-amount" placeholder="0.00" />
+          </div>
+          <div class="form-group">
+            <label>Issuing Authority</label>
+            <select id="fine-authority" onchange="updateFineType()">
+              <optgroup label="Victoria Police / VicRoads">
+                <option value="Victoria Police">Victoria Police</option>
+                <option value="VicRoads">VicRoads</option>
+                <option value="Fines Victoria">Fines Victoria</option>
+              </optgroup>
+              <optgroup label="Council — Parking">
+                <option value="City of Melbourne">City of Melbourne</option>
+                <option value="City of Port Phillip">City of Port Phillip</option>
+                <option value="Yarra City Council">Yarra City Council</option>
+                <option value="Merri-bek City Council">Merri-bek City Council</option>
+                <option value="Maribyrnong City Council">Maribyrnong City Council</option>
+                <option value="Moonee Valley City Council">Moonee Valley City Council</option>
+                <option value="Hobsons Bay City Council">Hobsons Bay City Council</option>
+                <option value="Wyndham City Council">Wyndham City Council</option>
+                <option value="Brimbank City Council">Brimbank City Council</option>
+                <option value="Hume City Council">Hume City Council</option>
+                <option value="Moreland City Council">Moreland City Council</option>
+                <option value="Darebin City Council">Darebin City Council</option>
+                <option value="Whitehorse City Council">Whitehorse City Council</option>
+                <option value="Boroondara City Council">Boroondara City Council</option>
+                <option value="Stonnington City Council">Stonnington City Council</option>
+                <option value="Glen Eira City Council">Glen Eira City Council</option>
+                <option value="Bayside City Council">Bayside City Council</option>
+                <option value="Kingston City Council">Kingston City Council</option>
+                <option value="Monash City Council">Monash City Council</option>
+                <option value="Knox City Council">Knox City Council</option>
+                <option value="Other Council">Other Council</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="EastLink">EastLink</option>
+                <option value="CityLink">CityLink</option>
+                <option value="Western Ring Road">Western Ring Road</option>
+                <option value="Melbourne Airport">Melbourne Airport</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Infringement Type</label>
+            <select id="fine-type">
+              <option value="Speeding">Speeding</option>
+              <option value="Red Light Camera">Red Light Camera</option>
+              <option value="Mobile Phone">Mobile Phone</option>
+              <option value="Seatbelt">Seatbelt</option>
+              <option value="Toll">Toll</option>
+              <option value="Parking — Overtime">Parking — Overtime</option>
+              <option value="Parking — No Stopping">Parking — No Stopping</option>
+              <option value="Parking — No Parking">Parking — No Parking</option>
+              <option value="Parking — Other">Parking — Other</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Status</label>
+            <select id="fine-paid">
+              <option value="Pending">Pending</option>
+              <option value="Nominated">Nominated</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <input type="text" id="fine-notes" placeholder="Infringement number, details..." />
+          </div>
+          <div class="form-group">
+            <label>Reference Number (after nomination)</label>
+            <input type="text" id="fine-reference" placeholder="e.g. NOM-2026-XXXXX" />
+          </div>
+          <div class="form-group">
+            <label>Date Nominated</label>
+            <input type="date" id="fine-date-nominated" />
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="logFine()" style="margin-top:12px;">⚡ Log Fine</button>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:0;">All Fines</div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="fine-filter-driver" placeholder="Filter by driver..." oninput="renderFinesTable()" style="padding:6px 12px;font-size:12px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);width:180px;" />
+            <select id="fine-filter-status" onchange="renderFinesTable()" style="padding:6px 12px;font-size:12px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);">
+              <option value="all">All Status</option>
+              <option value="Unpaid">Unpaid</option>
+              <option value="Paid">Paid</option>
+              <option value="Nominated">Nominated</option>
+            </select>
+          </div>
+        </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          <div class="fine-row header" style="grid-template-columns:1.5fr 2fr 1fr 1fr 1fr 1.2fr 80px;">
+            <div>Driver</div>
+            <div>Type</div>
+            <div>Date</div>
+            <div>Amount</div>
+            <div>Status / Ref</div>
+            <div>Action</div>
+          </div>
+          <div id="fines-list"><div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">No fines logged yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- SETTINGS TAB -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-title">⚙ Business Details</div>
+        <p style="color:var(--muted);font-size:13px;margin-bottom:24px;">Company details used for fine nomination documents.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;">
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">TBM Fleet</div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Company Name</label><div style="font-size:13px;padding:8px 0;">TBM & ASSOCIATES PTY LTD</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ACN</label><div style="font-size:13px;padding:8px 0;">113 552 319</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ABN</label><div style="font-size:13px;padding:8px 0;">37 629 843 447</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Address</label><div style="font-size:13px;padding:8px 0;">120 GAFFNEY STREET, COBURG NORTH VIC 3058</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Director</label><div style="font-size:13px;padding:8px 0;">MUHAMMAD AZEEM</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Phone</label><div style="font-size:13px;padding:8px 0;">0410 886 108</div></div>
+          </div>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">XE Fleet</div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Company Name</label><div style="font-size:13px;padding:8px 0;">XE BEC INTERNATIONAL PTY LTD</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ACN</label><div style="font-size:13px;padding:8px 0;">113 552 319</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ABN</label><div style="font-size:13px;padding:8px 0;">67 113 552 319</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Address</label><div style="font-size:13px;padding:8px 0;">120 GAFFNEY STREET, COBURG NORTH VIC 3058</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Director</label><div style="font-size:13px;padding:8px 0;">MIRZA BAIG</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Phone</label><div style="font-size:13px;padding:8px 0;">0402 260 265</div></div>
+          </div>
+          <div>
+            <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--warning);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">MKBAUS Trust</div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Entity Name</label><div style="font-size:13px;padding:8px 0;">MKBAUS TRUST</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ACN</label><div style="font-size:13px;padding:8px 0;">—</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>ABN</label><div style="font-size:13px;padding:8px 0;">38 524 392 052</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Address</label><div style="font-size:13px;padding:8px 0;">18 QUARTER STREET, ROXBURGH PARK VIC 3064</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Trustee</label><div style="font-size:13px;padding:8px 0;">MIRZA KAMRAN BAIG</div></div>
+            <div class="form-group" style="margin-bottom:10px;"><label>Phone</label><div style="font-size:13px;padding:8px 0;">0402 260 265</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-import" class="tab-content">
+      <div class="card">
+        <div class="card-title">⬇ Import Driver Data from QuickBooks</div>
+        <p style="color:var(--muted);font-size:13px;line-height:1.6;margin-bottom:20px;">
+          This tool pulls all invoices from QuickBooks, extracts rego + start date + rent for each driver, 
+          then cross-references with your payments sheet and drivers details sheet to build complete records.
+          You review all matches before anything is written to the database.
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+          <button class="btn btn-primary" onclick="startImport()" id="import-btn">⬇ Pull Data from QuickBooks</button>
+          <button class="btn btn-secondary" onclick="confirmImport()" id="confirm-btn" style="display:none;">✓ Write Selected to Database</button>
+        </div>
+        <div id="import-progress" style="display:none;margin-bottom:16px;">
+          <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px;">
+            <div id="import-bar" style="height:100%;background:var(--accent);width:0%;transition:width 0.3s;"></div>
+          </div>
+          <div id="import-status" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);"></div>
+        </div>
+        <div id="import-results"></div>
+      </div>
+    </div>
+
+    <!-- CARS TAB -->
+    <div id="tab-cars" class="tab-content">
+      <div class="stats-row" style="margin-bottom:20px;">
+        <div class="stat-box"><div class="stat-label">Total Cars</div><div class="stat-val" id="cstat-total">—</div></div>
+        <div class="stat-box"><div class="stat-label">TBM</div><div class="stat-val green" id="cstat-tbm">—</div></div>
+        <div class="stat-box"><div class="stat-label">XE</div><div class="stat-val blue" id="cstat-xe">—</div></div>
+        <div class="stat-box"><div class="stat-label">MKBAUS</div><div class="stat-val" style="color:var(--warning);" id="cstat-mkbaus">—</div></div>
+      </div>
+
+      <div class="search-big" style="margin-bottom:20px;">
+        <input type="text" id="car-search" placeholder="Search rego, make, model, colour..." oninput="renderCars()" />
+        <select id="car-company-filter" onchange="renderCars()" style="width:130px;padding:8px 12px;font-size:12px;flex-shrink:0;">
+          <option value="all">All companies</option>
+          <option value="TBM">TBM</option>
+          <option value="XE">XE</option>
+          <option value="MKBAUS">MKBAUS Trust</option>
+        </select>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">+ Add Car to Fleet</div>
+        <div class="form-grid" style="margin-bottom:14px;">
+          <div class="form-group"><label>Company *</label>
+            <select id="cadd-company"><option value="TBM">TBM</option><option value="XE">XE</option><option value="MKBAUS">MKBAUS Trust</option></select>
+          </div>
+          <div class="form-group"><label>Rego *</label>
+            <input type="text" id="cadd-rego" placeholder="e.g. AZP599" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" />
+          </div>
+          <div class="form-group"><label>VIN</label>
+            <input type="text" id="cadd-vin" placeholder="17-char VIN" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group"><label>Year</label>
+            <input type="text" id="cadd-year" placeholder="e.g. 2019" />
+          </div>
+          <div class="form-group"><label>Make</label>
+            <input type="text" id="cadd-make" placeholder="e.g. TOYOTA" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group"><label>Model</label>
+            <input type="text" id="cadd-model" placeholder="e.g. CAMRY" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group"><label>Colour</label>
+            <input type="text" id="cadd-colour" placeholder="e.g. WHITE" style="text-transform:uppercase;" />
+          </div>
+          <div class="form-group"><label>Body Shape</label>
+            <select id="cadd-shape">
+              <option value="">— Select —</option>
+              <option>Sedan</option><option>SUV</option><option>Hatchback</option>
+              <option>Wagon</option><option>Ute</option><option>Van</option>
+              <option>Coupe</option><option>Other</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Purchase Date</label>
+            <input type="date" id="cadd-purchase-date" />
+          </div>
+          <div class="form-group"><label>Purchase Price ($)</label>
+            <input type="number" id="cadd-purchase-price" placeholder="e.g. 25000" />
+          </div>
+          <div class="form-group"><label>Bought From</label>
+            <input type="text" id="cadd-bought-from" placeholder="e.g. Facebook, Dealer, Auction" />
+          </div>
+          <div class="form-group"><label>Origin (State / Country)</label>
+            <input type="text" id="cadd-origin" placeholder="e.g. VIC, Japan" />
+          </div>
+          <div class="form-group"><label>Condition on Arrival</label>
+            <select id="cadd-condition">
+              <option value="">— Select —</option>
+              <option>Excellent</option><option>Good</option><option>Fair</option>
+              <option>Poor</option><option>Damaged</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Odometer on Arrival (km)</label>
+            <input type="number" id="cadd-odometer-in" placeholder="e.g. 45000" />
+          </div>
+          <div class="form-group"><label>Odometer Adjusted To (km)</label>
+            <input type="number" id="cadd-odometer-adjusted" placeholder="e.g. 0" />
+          </div>
+          <div class="form-group full"><label>Notes</label>
+            <textarea id="cadd-car-notes" rows="2" style="resize:vertical;" placeholder="Any notes about the vehicle..."></textarea>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addCar()" style="width:100%;justify-content:center;">Add Car to Fleet →</button>
+      </div>
+
+      <div id="cars-list"><div class="loading"><div class="spinner"></div> Loading cars...</div></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- CAR DETAIL MODAL -->
+<div class="modal-overlay" id="car-modal">
+  <div class="modal" style="width:660px;">
+    <div class="modal-header">
+      <div class="modal-title" id="car-modal-title">Car Details</div>
+      <button class="close-btn" onclick="document.getElementById('car-modal').classList.remove('open')">✕</button>
+    </div>
+    <div id="car-modal-body"></div>
+  </div>
+</div>
+
+<!-- DRIVER DETAIL MODAL -->
+<div class="modal-overlay" id="driver-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-driver-name">Driver Name</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:4px;" id="modal-driver-sub"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const WORKER = 'https://tbm-fleet-auth.mikasafanboy101.workers.dev/';
+  const SHEET_ID = '1HwdnemR3ogHRwrEtV0DZTjk0aL2f-Smg1jPPSvek6lQ';
+  const SHEET_TAB = 'PARTNERS';
+
+  // Column mapping (0-indexed)
+  // A=NO B=NAME C=EMAIL D=PHONE E=STREET F=SUBURB G=POSTCODE
+  // H=LICENCE_NO I=LICENCE_STATE J=DOB K=REGO L=FLEET M=START_DATE N=END_DATE
+  // O=RENT P=BOND Q=BANK R=REFERENCE S=RENT_DUE T=HANDOFF_TIME U=NOTES
+  // V=RETURN_TIME W=LICENCE_PHOTO_FRONT X=LICENCE_PHOTO_BACK
+  const COL = {
+    NO: 0, NAME: 1, EMAIL: 2, PHONE: 3, STREET: 4, SUBURB: 5, POSTCODE: 6,
+    LICENCE_NO: 7, LICENCE_STATE: 8, DOB: 9, REGO: 10, FLEET: 11,
+    START_DATE: 12, END_DATE: 13, RENT: 14, BOND: 15, BANK: 16,
+    REFERENCE: 17, RENT_DUE: 18, HANDOFF_TIME: 19, NOTES: 20,
+    RETURN_TIME: 21, LICENCE_PHOTO_FRONT: 22, LICENCE_PHOTO_BACK: 23
+  };
+
+  const CARS_SHEET = 'CARS';
+  const CARS_COL = {
+    NO: 0, COMPANY: 1, REGO: 2, VIN: 3, YEAR: 4, MAKE: 5, MODEL: 6,
+    COLOUR: 7, SHAPE: 8, PURCHASE_DATE: 9, PURCHASE_PRICE: 10,
+    BOUGHT_FROM: 11, ORIGIN: 12, CONDITION: 13,
+    ODOMETER_IN: 14, ODOMETER_ADJUSTED: 15, NOTES: 16
+  };
+
+  // Business details — hardcoded, never changes
+  function getBusiness() {
+    return {
+      TBM: {
+        name: 'TBM & ASSOCIATES PTY LTD',
+        acn: '113552319',
+        abn: '37629843447',
+        address: '120 GAFFNEY STREET, COBURG NORTH VIC 3058',
+        director: 'MUHAMMAD AZEEM',
+        position: 'Director',
+        phone: '0410886108'
+      },
+      XE: {
+        name: 'XE BEC INTERNATIONAL PTY LTD',
+        acn: '113552319',
+        abn: '67113552319',
+        address: '120 GAFFNEY STREET, COBURG NORTH VIC 3058',
+        director: 'MIRZA BAIG',
+        position: 'Director',
+        phone: '0402260265'
+      },
+      MKBAUS: {
+        name: 'MKBAUS TRUST',
+        acn: '',
+        abn: '38524392052',
+        address: '18 QUARTER STREET, ROXBURGH PARK VIC 3064',
+        director: 'MIRZA KAMRAN BAIG',
+        position: 'Trustee',
+        phone: '0402260265'
+      }
+    };
+  }
+
+  let allDrivers = [];
+  let allCars = [];
+  let currentTab = 'lookup';
+
+  function driveImgUrl(url) {
+    if (!url) return null;
+    const m = url.match(/[?&]id=([^&\s]+)/) || url.match(/\/d\/([^/\s]+)/);
+    return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w400` : null;
+  }
+
+  // ── Sheets API ─────────────────────────────────────────────────────────────
+  async function sheetsCall(sheetAction, extra = {}) {
+    try {
+      const res = await fetch(WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sheets', sheetAction, spreadsheetId: SHEET_ID, ...extra })
+      });
+      return res.json();
+    } catch (err) {
+      showToast('Network error — check your connection.', 'error');
+      return { error: err.message };
+    }
+  }
+
+  // ── Load all data ──────────────────────────────────────────────────────────
+  async function loadAllData() {
+    const data = await sheetsCall('read', { range: `${SHEET_TAB}!A2:X2000` });
+    if (data.error) { showToast('Failed to load drivers — check your connection.', 'error'); return; }
+    const rows = data.values || [];
+
+    allDrivers = rows
+      .map((r, i) => ({ _actualRow: i + 2, _r: r }))
+      .filter(({ _r: r }) => r[COL.NAME] && r[COL.NAME].trim())
+      .map(({ _actualRow, _r: r }) => ({
+        rowIndex: _actualRow, // true sheet row number, unaffected by blank rows
+        no: r[COL.NO] || '',
+        name: r[COL.NAME] || '',
+        email: r[COL.EMAIL] || '',
+        phone: r[COL.PHONE] || '',
+        street: r[COL.STREET] || '',
+        suburb: r[COL.SUBURB] || '',
+        postcode: r[COL.POSTCODE] || '',
+        licenceNo: r[COL.LICENCE_NO] || '',
+        licenceState: r[COL.LICENCE_STATE] || '',
+        dob: r[COL.DOB] || '',
+        rego: r[COL.REGO] || '',
+        fleet: r[COL.FLEET] || '',
+        startDate: r[COL.START_DATE] || '',
+        endDate: r[COL.END_DATE] || '',
+        rent: r[COL.RENT] || '',
+        bond: r[COL.BOND] || '',
+        bank: r[COL.BANK] || '',
+        reference: r[COL.REFERENCE] || '',
+        rentDue: r[COL.RENT_DUE] || '',
+        handoffTime: r[COL.HANDOFF_TIME] || '',
+        notes: r[COL.NOTES] || '',
+        returnTime: r[COL.RETURN_TIME] || '',
+        licencePhotoFront: r[COL.LICENCE_PHOTO_FRONT] || '',
+        licencePhotoBack: r[COL.LICENCE_PHOTO_BACK] || '',
+        isActive: !r[COL.END_DATE] || r[COL.END_DATE].trim() === ''
+      }));
+
+    updateStats();
+    filterDrivers();
+  }
+
+  function updateStats() {
+    document.getElementById('stat-total').textContent = allDrivers.length;
+    document.getElementById('stat-active').textContent = allDrivers.filter(d => d.isActive).length;
+    const tbm = allDrivers.filter(d => d.fleet === 'TBM').length;
+    const xe = allDrivers.filter(d => d.fleet === 'XE').length;
+    document.getElementById('stat-tbm-xe').textContent = `${tbm} / ${xe}`;
+    document.getElementById('stat-mkbaus').textContent = allDrivers.filter(d => d.fleet === 'MKBAUS').length;
+  }
+
+  // ── Render drivers list ────────────────────────────────────────────────────
+  function renderDrivers(drivers) {
+    const el = document.getElementById('drivers-list');
+    if (!drivers.length) { el.innerHTML = '<div class="empty">No drivers found.</div>'; return; }
+
+    el.innerHTML = drivers.map(d => `
+      <div class="driver-card ${d.isActive ? 'active-driver' : 'ended-driver'}" style="cursor:pointer;">
+        <div onclick="openDriverModal(${d.rowIndex})" style="flex:1;">
+          <div class="driver-name">${d.name}</div>
+          <div class="driver-meta">${d.phone || '—'} · ${d.email || '—'}</div>
+        </div>
+        <div onclick="openDriverModal(${d.rowIndex})" style="flex:1;">
+          ${d.rego ? '<span class="rego-pill">' + d.rego + '</span>' : '<span style="color:var(--muted)">No rego</span>'}
+          <div class="driver-meta" style="margin-top:4px;">${d.fleet || '—'}</div>
+        </div>
+        <div onclick="openDriverModal(${d.rowIndex})" style="flex:1;">
+          <div class="date-range">${d.startDate || '—'} →</div>
+          <div class="date-range">${d.endDate || 'Present'}</div>
+          ${d.handoffTime ? `<div style="margin-top:2px;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);">${d.handoffTime}</div>` : ''}
+          ${d.rentDue ? `<div style="margin-top:2px;font-size:10px;font-family:'DM Mono',monospace;color:var(--accent);">Due: ${d.rentDue}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          ${d.isActive
+            ? '<span class="status-active">● Active</span>'
+            : '<span class="status-ended">○ Ended</span>'}
+          ${d.rego ? `<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();quickAddForRego('${d.rego}','${d.fleet}')" style="padding:4px 10px;font-size:11px;color:var(--accent);border-color:var(--accent);" title="Add another driver for ${d.rego}">+ Rego</button>` : ''}
+          <button class="btn btn-danger" onclick="event.stopPropagation();deleteDriver(${d.rowIndex},'${d.name.replace(/'/g,'').replace(/"/g,'')}')" style="padding:4px 10px;font-size:11px;">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+
+  async function deleteDriver(rowIndex, name) {
+    if (!confirm('Delete ' + name + ' from the database? This cannot be undone.')) return;
+    const result = await sheetsCall('update', {
+      range: `${SHEET_TAB}!A${rowIndex}:X${rowIndex}`,
+      values: [Array(24).fill('')]
+    });
+    if (result.error) {
+      showToast('Error deleting driver', 'error');
+      return;
+    }
+    allDrivers = allDrivers.filter(d => d.rowIndex !== rowIndex);
+    updateStats();
+    filterDrivers();
+    showToast('✓ ' + name + ' deleted', 'success');
+  }
+
+  function quickAddForRego(rego, fleet) {
+    switchTab('add');
+    // Pre-fill rego and fleet
+    const regoEl = document.getElementById('add-rego');
+    const fleetEl = document.getElementById('add-fleet');
+    const nameEl = document.getElementById('add-name');
+    if (regoEl) regoEl.value = rego.toUpperCase();
+    if (fleetEl) fleetEl.value = fleet || 'TBM';
+    // Scroll to top of form and focus name
+    setTimeout(() => {
+      if (nameEl) nameEl.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 50);
+    showToast(`Rego ${rego} pre-filled — enter the driver details`, 'success');
+  }
+
+  function filterDrivers() {
+    const q = document.getElementById('driver-search').value.toLowerCase();
+    const fleet = document.getElementById('fleet-filter').value;
+    const status = document.getElementById('status-filter').value;
+
+    let filtered = allDrivers.filter(d => {
+      const matchQ = !q || d.name.toLowerCase().includes(q) ||
+        d.rego.toLowerCase().includes(q) || d.licenceNo.toLowerCase().includes(q) ||
+        d.phone.includes(q);
+      const matchFleet = fleet === 'all' || d.fleet === fleet;
+      const matchStatus = status === 'all' ||
+        (status === 'active' && d.isActive) ||
+        (status === 'ended' && !d.isActive);
+      return matchQ && matchFleet && matchStatus;
+    });
+    renderDrivers(filtered);
+  }
+
+  // ── Fine lookup ────────────────────────────────────────────────────────────
+  function lookupFine() {
+    const rego = document.getElementById('lookup-rego').value.trim().toUpperCase();
+    const dateStr = document.getElementById('lookup-date').value;
+
+    if (!rego || !dateStr) {
+      showToast('Please enter both a rego and a date.', 'error');
+      return;
+    }
+
+    const infDate = new Date(dateStr + 'T12:00:00');
+
+    // Find drivers for this rego — partial match so 'AZP599-1UG2IK' matches '1UG2IK'
+    const regoDrivers = allDrivers
+      .filter(d => d.rego.toUpperCase().split('-').map(r => r.trim()).includes(rego) || d.rego.toUpperCase() === rego)
+      .sort((a, b) => (a.startDate || '').localeCompare(b.startDate || ''));
+
+    if (!regoDrivers.length) {
+      document.getElementById('lookup-result').innerHTML = `
+        <div class="card" style="border-color:var(--danger);">
+          <div style="color:var(--danger);font-weight:600;margin-bottom:8px;">No drivers found for rego ${rego}</div>
+          <div style="color:var(--muted);font-size:13px;">This rego isn't in the database yet. Add the driver first.</div>
+        </div>`;
+      return;
+    }
+
+    // Find who was driving on the infringement date
+    let match = null;
+    for (const d of regoDrivers) {
+      if (!d.startDate) continue;
+      const start = new Date(d.startDate + 'T00:00:00');
+      const end = d.endDate ? new Date(d.endDate + 'T23:59:59') : new Date('2099-12-31');
+      if (infDate >= start && infDate <= end) { match = d; break; }
+    }
+
+    const resultEl = document.getElementById('lookup-result');
+
+    if (!match) {
+      resultEl.innerHTML = `
+        <div class="card" style="border-color:var(--warning);">
+          <div style="color:var(--warning);font-weight:600;margin-bottom:12px;">⚠ No driver matched for ${rego} on ${dateStr}</div>
+          <div style="color:var(--muted);font-size:13px;margin-bottom:16px;">Drivers on record for this rego:</div>
+          ${regoDrivers.map(d => `
+            <div style="font-family:'DM Mono',monospace;font-size:12px;padding:8px 0;border-bottom:1px solid var(--border);">
+              ${d.name} — ${d.startDate || '?'} → ${d.endDate || 'Present'}
+            </div>`).join('')}
+        </div>`;
+      return;
+    }
+
+    const BUSINESS = getBusiness();
+    const business = BUSINESS[match.fleet] || BUSINESS.TBM;
+    const missingFields = [];
+    if (!match.licenceNo) missingFields.push('Licence Number');
+    if (!match.dob) missingFields.push('Date of Birth');
+    if (!match.street) missingFields.push('Address');
+
+    resultEl.innerHTML = `
+      <div class="nomination-card">
+        <div class="nomination-title">✓ Driver Found — Nomination Ready</div>
+
+        ${missingFields.length ? `
+          <div style="background:rgba(255,179,71,0.1);border:1px solid var(--warning);border-radius:8px;padding:12px 16px;margin-bottom:20px;">
+            <div style="color:var(--warning);font-family:'DM Mono',monospace;font-size:11px;font-weight:600;margin-bottom:4px;">⚠ Missing fields for complete nomination:</div>
+            <div style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;">${missingFields.join(', ')} — edit this driver to add them</div>
+          </div>` : ''}
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Driver Details</div>
+        <div class="nomination-grid">
+          <div class="nom-field">
+            <div class="nom-label">Full Name</div>
+            <div class="nom-value">${match.name || '—'} <button class="copy-btn" onclick="copyText('${match.name}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Date of Birth</div>
+            <div class="nom-value">${match.dob || '⚠ Missing'} ${match.dob ? `<button class="copy-btn" onclick="copyText('${match.dob}')">copy</button>` : ''}</div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Licence Number</div>
+            <div class="nom-value">${match.licenceNo || '⚠ Missing'} ${match.licenceNo ? `<button class="copy-btn" onclick="copyText('${match.licenceNo}')">copy</button>` : ''}</div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Licence State</div>
+            <div class="nom-value">${match.licenceState || 'VIC'} <button class="copy-btn" onclick="copyText('${match.licenceState || 'VIC'}')">copy</button></div>
+          </div>
+          <div class="nom-field" style="grid-column:1/-1;">
+            <div class="nom-label">Address</div>
+            <div class="nom-value">${[match.street, match.suburb, match.postcode].filter(Boolean).join(', ') || '⚠ Missing'}
+              ${match.street ? `<button class="copy-btn" onclick="copyText('${[match.street, match.suburb, match.postcode].filter(Boolean).join(', ')}')">copy</button>` : ''}
+            </div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Phone</div>
+            <div class="nom-value">${match.phone || '—'} ${match.phone ? `<button class="copy-btn" onclick="copyText('${match.phone}')">copy</button>` : ''}</div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Vehicle Rego</div>
+            <div class="nom-value">${match.rego} <button class="copy-btn" onclick="copyText('${match.rego}')">copy</button></div>
+          </div>
+        </div>
+
+        <hr class="nom-divider">
+
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Business Details — ${business.name}</div>
+        <div class="nomination-grid">
+          <div class="nom-field">
+            <div class="nom-label">Company Name</div>
+            <div class="nom-value">${business.name} <button class="copy-btn" onclick="copyText('${business.name}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">ACN</div>
+            <div class="nom-value">${business.acn} <button class="copy-btn" onclick="copyText('${business.acn}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">ABN</div>
+            <div class="nom-value">${business.abn} <button class="copy-btn" onclick="copyText('${business.abn}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Director Name</div>
+            <div class="nom-value">${business.director} <button class="copy-btn" onclick="copyText('${business.director}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Position</div>
+            <div class="nom-value">${business.position} <button class="copy-btn" onclick="copyText('${business.position}')">copy</button></div>
+          </div>
+          <div class="nom-field">
+            <div class="nom-label">Phone</div>
+            <div class="nom-value">${business.phone} <button class="copy-btn" onclick="copyText('${business.phone}')">copy</button></div>
+          </div>
+          <div class="nom-field" style="grid-column:1/-1;">
+            <div class="nom-label">Business Address</div>
+            <div class="nom-value">${business.address} <button class="copy-btn" onclick="copyText('${business.address}')">copy</button></div>
+          </div>
+        </div>
+
+        <hr class="nom-divider">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" onclick="copyAllNomination('${match.name}','${match.dob}','${match.licenceNo}','${match.licenceState || 'VIC'}','${[match.street,match.suburb,match.postcode].filter(Boolean).join(', ')}','${match.rego}','${business.name}','${business.acn}','${business.director}','${business.position}','${business.address}')">
+            Copy All Fields
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openDriverModal(${match.rowIndex})">Edit Driver Details</button>
+        </div>
+      </div>`;
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success'));
+  }
+
+  function copyAllNomination(name, dob, lic, state, addr, rego, bname, acn, director, pos, baddr) {
+    const text = `DRIVER: ${name}\nDOB: ${dob}\nLICENCE: ${lic} (${state})\nADDRESS: ${addr}\nREGO: ${rego}\n\nCOMPANY: ${bname}\nACN: ${acn}\nDIRECTOR: ${director}\nPOSITION: ${pos}\nBUSINESS ADDRESS: ${baddr}`;
+    navigator.clipboard.writeText(text).then(() => showToast('All fields copied!', 'success'));
+  }
+
+  // ── Add driver ─────────────────────────────────────────────────────────────
+  async function addDriver() {
+    const name = document.getElementById('add-name').value.trim().toUpperCase();
+    const phone = document.getElementById('add-phone').value.trim();
+    const email = document.getElementById('add-email').value.trim();
+    const dob = document.getElementById('add-dob').value;
+    const licenceNo = document.getElementById('add-licence').value.trim().toUpperCase();
+    const licenceState = document.getElementById('add-licence-state').value;
+    const street = document.getElementById('add-street').value.trim();
+    const suburb = document.getElementById('add-suburb').value.trim();
+    const postcode = document.getElementById('add-postcode').value.trim();
+    const rego = document.getElementById('add-rego').value.trim().toUpperCase();
+    const fleet = document.getElementById('add-fleet').value;
+    const startDate = document.getElementById('add-start').value;
+    const endDate = document.getElementById('add-end').value;
+    const handoffTime = document.getElementById('add-handoff-time').value;
+    const returnTime = document.getElementById('add-return-time').value;
+    const rent = document.getElementById('add-rent').value;
+    const rentDue = document.getElementById('add-rent-due').value;
+    const bond = document.getElementById('add-bond').value;
+    const bank = document.getElementById('add-bank').value.trim().toUpperCase();
+    const reference = document.getElementById('add-reference').value.trim();
+    const notes = document.getElementById('add-notes').value.trim();
+
+    if (!name || !rego || !startDate) {
+      showToast('Name, Rego and Start Date are required.', 'error');
+      return;
+    }
+
+    // ── Overlap check ────────────────────────────────────────────────────────
+    const newStart = new Date(startDate + 'T00:00:00');
+    const newEnd = endDate ? new Date(endDate + 'T23:59:59') : new Date('2099-12-31');
+    const conflicts = allDrivers.filter(d => {
+      if (d.rego.toUpperCase() !== rego) return false;
+      const dStart = d.startDate ? new Date(d.startDate + 'T00:00:00') : null;
+      const dEnd = d.endDate ? new Date(d.endDate + 'T23:59:59') : new Date('2099-12-31');
+      if (!dStart) return false;
+      return newStart <= dEnd && newEnd >= dStart;
+    });
+    if (conflicts.length) {
+      const names = conflicts.map(d => `${d.name} (${d.startDate} → ${d.endDate || 'Present'})`).join('\n');
+      showToast(`⚠ Rego conflict! ${rego} already assigned during this period.`, 'error');
+      alert(`❌ Date overlap detected for ${rego}:\n\n${names}\n\nPlease end the existing driver's record first, or adjust the dates.`);
+      return;
+    }
+
+    // Get the actual last row number from the sheet to avoid duplicates
+    const existingNos = allDrivers.map(d => parseInt(d.no)).filter(n => !isNaN(n));
+    const nextNo = existingNos.length ? Math.max(...existingNos) + 1 : 1;
+
+    const row = [nextNo, name, email, phone, street, suburb, postcode,
+      licenceNo, licenceState, dob, rego, fleet, startDate, endDate,
+      rent, bond, bank, reference, rentDue, handoffTime, notes, returnTime, '', ''];
+
+    showToast('Saving to Google Sheets...', 'success');
+    // Use valueInputOption RAW and explicit range to prevent column shifting
+    const result = await sheetsCall('append', {
+      range: `${SHEET_TAB}!A1`,
+      values: [row]
+    });
+
+    if (result.updates || result.updatedCells !== undefined || result.tableRange) {
+      showToast(`✓ ${name} added to database!`, 'success');
+      // Clear form
+      ['add-name','add-phone','add-email','add-licence','add-street','add-suburb',
+       'add-postcode','add-rego','add-rent','add-bond','add-bank','add-reference','add-notes','add-handoff-time'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      document.getElementById('add-dob').value = '';
+      document.getElementById('add-start').value = '';
+      document.getElementById('add-end').value = '';
+      await loadAllData();
+      switchTab('drivers');
+    } else {
+      showToast('Error saving. Check console.', 'error');
+      console.error(result);
+    }
+  }
+
+  // ── Driver detail modal ────────────────────────────────────────────────────
+  function openDriverModal(rowIndex) {
+    const d = allDrivers.find(x => x.rowIndex === rowIndex);
+    if (!d) return;
+
+    document.getElementById('modal-driver-name').textContent = d.name;
+    document.getElementById('modal-driver-sub').textContent = `${d.rego || '—'} · ${d.fleet || '—'} · ${d.isActive ? 'Active' : 'Ended'}`;
+
+    document.getElementById('modal-body').innerHTML = `
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Driver Details</div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="edit-name" value="${d.name}" style="text-transform:uppercase;" />
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="edit-phone" value="${d.phone}" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" id="edit-email" value="${d.email}" />
+        </div>
+        <div class="form-group">
+          <label>Date of Birth</label>
+          <input type="date" id="edit-dob" value="${d.dob}" />
+        </div>
+      </div>
+
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Licence</div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>Licence Number</label>
+          <input type="text" id="edit-licence" value="${d.licenceNo}" style="text-transform:uppercase;" />
+        </div>
+        <div class="form-group">
+          <label>Licence State</label>
+          <select id="edit-licence-state">
+            ${['VIC','NSW','QLD','WA','SA','TAS','ACT','NT'].map(s => `<option value="${s}" ${d.licenceState === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Address</div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group full">
+          <label>Street</label>
+          <input type="text" id="edit-street" value="${d.street}" />
+        </div>
+        <div class="form-group">
+          <label>Suburb</label>
+          <input type="text" id="edit-suburb" value="${d.suburb}" />
+        </div>
+        <div class="form-group">
+          <label>Postcode</label>
+          <input type="text" id="edit-postcode" value="${d.postcode}" />
+        </div>
+      </div>
+
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Vehicle & Rental</div>
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div class="form-group">
+          <label>Vehicle Rego</label>
+          <input type="text" id="edit-rego" value="${d.rego}" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()" />
+        </div>
+        <div class="form-group">
+          <label>Fleet</label>
+          <select id="edit-fleet">
+            <option value="TBM" ${d.fleet === 'TBM' ? 'selected' : ''}>TBM</option>
+            <option value="XE" ${d.fleet === 'XE' ? 'selected' : ''}>XE</option>
+            <option value="MKBAUS" ${d.fleet === 'MKBAUS' ? 'selected' : ''}>MKBAUS Trust</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" id="edit-start" value="${d.startDate}" />
+        </div>
+        <div class="form-group">
+          <label>End Date (blank = still active)</label>
+          <input type="date" id="edit-end" value="${d.endDate}" />
+        </div>
+        <div class="form-group">
+          <label>Handoff Time (Pickup)</label>
+          <input type="time" id="edit-handoff-time" value="${d.handoffTime || ''}" />
+        </div>
+        <div class="form-group">
+          <label>Return Time (Drop-off)</label>
+          <input type="time" id="edit-return-time" value="${d.returnTime || ''}" />
+        </div>
+        <div class="form-group">
+          <label>Weekly Rent ($)</label>
+          <input type="number" id="edit-rent" value="${d.rent}" />
+        </div>
+        <div class="form-group">
+          <label>Rent Due Day</label>
+          <select id="edit-rent-due">
+            <option value="">— Select day —</option>
+            ${['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day =>
+              `<option value="${day}" ${d.rentDue === day ? 'selected' : ''}>${day}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Bond ($)</label>
+          <input type="number" id="edit-bond" value="${d.bond}" />
+        </div>
+        <div class="form-group">
+          <label>Bank / Method</label>
+          <input type="text" id="edit-bank" value="${d.bank}" style="text-transform:uppercase;" />
+        </div>
+        <div class="form-group">
+          <label>Reference</label>
+          <input type="text" id="edit-reference" value="${d.reference}" />
+        </div>
+        <div class="form-group full">
+          <label>Notes</label>
+          <textarea id="edit-notes" rows="2" style="resize:vertical;">${d.notes}</textarea>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" onclick="saveDriverEdits(${rowIndex})" style="flex:1;justify-content:center;">Save All Changes →</button>
+        <button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+      </div>
+      <div id="edit-save-msg" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);margin-top:8px;display:none;">✓ Saved successfully</div>
+
+      <div class="driver-fines-section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">📎 Licence Documents</div>
+        ${(() => {
+          const formMatch = formSubmissions.find(s =>
+            (d.licenceNo && s.licenceNo && d.licenceNo.toUpperCase() === s.licenceNo.toUpperCase()) || s.fullName === d.name
+          );
+          const photoFront = d.licencePhotoFront || formMatch?.licencePhotoFront || '';
+          const photoBack = d.licencePhotoBack || formMatch?.licencePhotoBack || '';
+          if (!photoFront && !photoBack) return '<div style="color:var(--muted);font-size:12px;font-family:\'DM Mono\',monospace;">No licence photos on record yet.</div>';
+          return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            ${photoFront ? `<div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;">Licence Front</div>
+              <a href="${photoFront}" target="_blank" style="display:block;">
+                <img src="${driveImgUrl(photoFront) || ''}" style="width:100%;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onerror="this.parentElement.innerHTML='<div style=\\'padding:10px;background:var(--surface2);border-radius:8px;font-size:12px;\\'>🔒 <a href=\\'${photoFront}\\' target=\\'_blank\\' style=\\'color:var(--accent);\\'>Open in Drive</a> (make folder public to preview)</div>'" />
+              </a>
+            </div>` : ''}
+            ${photoBack ? `<div>
+              <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;">Licence Back</div>
+              <a href="${photoBack}" target="_blank" style="display:block;">
+                <img src="${driveImgUrl(photoBack) || ''}" style="width:100%;border-radius:8px;border:1px solid var(--border);cursor:pointer;" onerror="this.parentElement.innerHTML='<div style=\\'padding:10px;background:var(--surface2);border-radius:8px;font-size:12px;\\'>🔒 <a href=\\'${photoBack}\\' target=\\'_blank\\' style=\\'color:var(--accent);\\'>Open in Drive</a> (make folder public to preview)</div>'" />
+              </a>
+            </div>` : ''}
+          </div>`;
+        })()}
+      </div>
+
+      <div class="driver-fines-section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">🛡 Vehicle Insurance</div>
+        <div id="ins-saved-display" style="margin-bottom:14px;">${renderInsuranceDisplay(d.rego)}</div>
+        <div class="form-grid" style="margin-bottom:10px;">
+          <div class="form-group">
+            <label>Insurer</label>
+            <input type="text" id="ins-insurer" placeholder="e.g. AAMI, NRMA, Budget Direct" value="${getInsuranceForRego(d.rego)?.insurer || ''}" />
+          </div>
+          <div class="form-group">
+            <label>Cover Type</label>
+            <select id="ins-cover">
+              <option value="" ${!getInsuranceForRego(d.rego)?.coverType ? 'selected' : ''}>— Select —</option>
+              <option value="Comprehensive" ${getInsuranceForRego(d.rego)?.coverType === 'Comprehensive' ? 'selected' : ''}>Comprehensive</option>
+              <option value="Third Party Property" ${getInsuranceForRego(d.rego)?.coverType === 'Third Party Property' ? 'selected' : ''}>Third Party Property</option>
+              <option value="Third Party Fire &amp; Theft" ${getInsuranceForRego(d.rego)?.coverType === 'Third Party Fire & Theft' ? 'selected' : ''}>Third Party Fire &amp; Theft</option>
+            </select>
+          </div>
+        </div>
+        <input type="hidden" id="ins-rego" value="${d.rego}" />
+        <button class="btn btn-blue btn-sm" onclick="saveInsurance()">💾 Save Insurance</button>
+      </div>
+
+      <div class="driver-fines-section">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--warning);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">⚡ Fines History</div>
+        <div id="modal-fines-list">Loading...</div>
+      </div>
+    `;
+
+    // Load fines for this driver
+    const driverFines = allFines.filter(f => f.driver === d.name);
+    const modalFinesList = document.getElementById('modal-fines-list');
+    if (modalFinesList) {
+      if (!driverFines.length) {
+        modalFinesList.innerHTML = '<div style="color:var(--muted);font-size:13px;">No fines on record.</div>';
+      } else {
+        const total = driverFines.reduce((s, f) => s + f.amount, 0);
+        const unpaid = driverFines.filter(f => f.status !== 'Paid').reduce((s, f) => s + f.amount, 0);
+        modalFinesList.innerHTML = `
+          <div style="display:flex;gap:16px;margin-bottom:12px;">
+            <div style="font-family:'DM Mono',monospace;font-size:12px;">Total: <strong>$${total.toFixed(2)}</strong></div>
+            <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--danger);">Unpaid: <strong>$${unpaid.toFixed(2)}</strong></div>
+            <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">${driverFines.length} fine(s)</div>
+          </div>
+          ${driverFines.sort((a,b) => b.date.localeCompare(a.date)).map(f => `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;">
+              <div>${f.type} <span style="color:var(--muted);font-size:11px;">${f.date}</span></div>
+              <div style="display:flex;gap:12px;align-items:center;">
+                <span style="font-family:'DM Mono',monospace;">$${f.amount.toFixed(2)}</span>
+                <span class="${f.status === 'Paid' ? 'fine-status-paid' : 'fine-status-unpaid'}">${f.status}</span>
+              </div>
+            </div>
+          `).join('')}
+        `;
+      }
+    }
+
+    document.getElementById('driver-modal').classList.add('open');
+  }
+
+  async function saveDriverEdits(rowIndex) {
+    const d = allDrivers.find(x => x.rowIndex === rowIndex) || null;
+    const name = document.getElementById('edit-name')?.value.trim().toUpperCase() || '';
+    const phone = document.getElementById('edit-phone')?.value.trim() || '';
+    const email = document.getElementById('edit-email')?.value.trim() || '';
+    const dob = document.getElementById('edit-dob')?.value || '';
+    const licenceNo = document.getElementById('edit-licence')?.value.trim().toUpperCase() || '';
+    const licenceState = document.getElementById('edit-licence-state')?.value || 'VIC';
+    const street = document.getElementById('edit-street')?.value.trim() || '';
+    const suburb = document.getElementById('edit-suburb')?.value.trim() || '';
+    const postcode = document.getElementById('edit-postcode')?.value.trim() || '';
+    const rego = document.getElementById('edit-rego')?.value.trim().toUpperCase() || '';
+    const fleet = document.getElementById('edit-fleet')?.value || '';
+    const startDate = document.getElementById('edit-start')?.value || '';
+    const endDate = document.getElementById('edit-end')?.value || '';
+    const handoffTime = document.getElementById('edit-handoff-time')?.value || '';
+    const returnTime = document.getElementById('edit-return-time')?.value || '';
+    const rent = document.getElementById('edit-rent')?.value || '';
+    const rentDue = document.getElementById('edit-rent-due')?.value || '';
+    const bond = document.getElementById('edit-bond')?.value || '';
+    const bank = document.getElementById('edit-bank')?.value.trim().toUpperCase() || '';
+    const reference = document.getElementById('edit-reference')?.value.trim() || '';
+    const notes = document.getElementById('edit-notes')?.value.trim() || '';
+
+    // ── Overlap check (exclude self) ─────────────────────────────────────────
+    const newStart = startDate ? new Date(startDate + 'T00:00:00') : null;
+    const newEnd = endDate ? new Date(endDate + 'T23:59:59') : new Date('2099-12-31');
+    if (newStart) {
+      const conflicts = allDrivers.filter(d => {
+        if (d.rowIndex === rowIndex) return false; // skip self
+        if (d.rego.toUpperCase() !== rego) return false;
+        const dStart = d.startDate ? new Date(d.startDate + 'T00:00:00') : null;
+        const dEnd = d.endDate ? new Date(d.endDate + 'T23:59:59') : new Date('2099-12-31');
+        if (!dStart) return false;
+        return newStart <= dEnd && newEnd >= dStart;
+      });
+      if (conflicts.length) {
+        const names = conflicts.map(d => `${d.name} (${d.startDate} → ${d.endDate || 'Present'})`).join('\n');
+        showToast(`⚠ Rego conflict! ${rego} already assigned during this period.`, 'error');
+        alert(`❌ Date overlap detected for ${rego}:\n\n${names}\n\nAdjust the dates to avoid overlap.`);
+        return;
+      }
+    }
+
+    const values = [[
+      d?.no || '', name, email, phone, street, suburb, postcode,
+      licenceNo, licenceState, dob, rego, fleet, startDate, endDate,
+      rent, bond, bank, reference, rentDue, handoffTime, notes,
+      returnTime, d?.licencePhotoFront || '', d?.licencePhotoBack || ''
+    ]];
+
+    showToast('Saving...', 'success');
+    const result = await sheetsCall('update', {
+      range: `${SHEET_TAB}!A${rowIndex}:X${rowIndex}`,
+      values
+    });
+
+    if (result.error) {
+      showToast('Error saving. Check console.', 'error');
+      console.error(result);
+      return;
+    }
+    const idx = allDrivers.findIndex(x => x.rowIndex === rowIndex);
+    if (idx !== -1) {
+      allDrivers[idx] = { ...allDrivers[idx], name, phone, email, dob, licenceNo, licenceState,
+        street, suburb, postcode, rego, fleet, startDate, endDate, handoffTime, returnTime, rent, rentDue,
+        bond, bank, reference, notes, isActive: !endDate || endDate.trim() === '' };
+    }
+    updateStats();
+    filterDrivers();
+    const msg = document.getElementById('edit-save-msg');
+    if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
+    showToast('✓ Driver details saved', 'success');
+  }
+
+  async function updateEndDate(rowIndex) {
+    const d = allDrivers.find(x => x.rowIndex === rowIndex);
+    if (!d) return;
+    const newEndDate = document.getElementById('edit-end')?.value || '';
+    const result = await sheetsCall('update', {
+      range: `${SHEET_TAB}!N${rowIndex}`,
+      values: [[newEndDate]]
+    });
+    if (result.error) { showToast('Error updating', 'error'); return; }
+    d.endDate = newEndDate;
+    d.isActive = !newEndDate;
+    updateStats();
+    filterDrivers();
+    closeModal();
+    showToast('End date updated', 'success');
+  }
+
+  function closeModal() {
+    document.getElementById('driver-modal').classList.remove('open');
+  }
+
+
+
+  // ── FORM SUBMISSIONS IMPORT ────────────────────────────────────────────────
+  let formSubmissions = [];
+
+  async function loadFormSubmissions() {
+    const btn = document.getElementById('load-form-btn');
+    btn.textContent = 'Loading...';
+    btn.disabled = true;
+
+    try {
+      const data = await fetch(WORKER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sheets',
+          sheetAction: 'read',
+          spreadsheetId: ONBOARDING_SHEET_ID,
+          range: `${ONBOARDING_TAB}!A2:X1000`
+        })
+      }).then(r => r.json());
+
+      const rows = data.values || [];
+
+      if (!rows.length) {
+        document.getElementById('form-submissions-container').innerHTML =
+          '<div style="color:var(--muted);font-size:13px;">No submissions found.</div>';
+        btn.textContent = '⬇ Load New Submissions';
+        btn.disabled = false;
+        return;
+      }
+
+      // Map columns: A=Timestamp, B=FirstName, C=LastName, D=DOB, E=Phone,
+      // F=Email, G=Street, H=Suburb, I=Postcode, J=EmergName, K=EmergPhone,
+      // L=EmergRelation, M=LicenceNo, N=LicenceState, O=Rego,
+      // P=WeeklyRent, Q=Bond, R=StartDate, S=Bank, T=TCAgreed, U=Signature
+      formSubmissions = rows.map((r, i) => ({
+        rowNum: i + 2,
+        timestamp: r[0] || '',
+        firstName: r[1] || '',
+        lastName: r[2] || '',
+        fullName: ((r[1] || '') + ' ' + (r[2] || '')).trim().toUpperCase(),
+        dob: r[3] || '',
+        phone: r[4] || '',
+        email: r[5] || '',
+        street: r[6] || '',
+        suburb: r[7] || '',
+        postcode: r[8] || '',
+        emergName: r[9] || '',
+        emergPhone: r[10] || '',
+        emergRelation: r[11] || '',
+        licenceNo: (r[12] || '').toUpperCase(),
+        licenceState: r[13] || 'VIC',
+        rego: (r[14] || '').toUpperCase(),
+        rent: r[15] || '',
+        bond: r[16] || '',
+        startDate: r[17] || '',
+        bank: (r[18] || '').toUpperCase(),
+        agreed: r[19] || '',
+        signature: r[20] || '',
+        licencePhotoFront: r[21] || '',
+        licencePhotoBack: r[22] || '',
+        vehicleVideo: r[23] || '',
+        imported: false
+      }));
+
+      renderFormSubmissions();
+    } catch(e) {
+      document.getElementById('form-submissions-container').innerHTML =
+        '<div style="color:var(--danger);font-size:13px;">Error loading: ' + e.message + '</div>';
+    }
+
+    btn.textContent = '⬇ Refresh Submissions';
+    btn.disabled = false;
+  }
+
+  function renderFormSubmissions() {
+    const container = document.getElementById('form-submissions-container');
+    if (!formSubmissions.length) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:13px;">No submissions found.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:12px;">
+        ${formSubmissions.length} submission(s) found
+      </div>
+      ${formSubmissions.map((s, idx) => `
+        <div style="background:var(--surface2);border:1px solid ${s.imported ? 'var(--accent)' : 'var(--border)'};border-radius:12px;padding:20px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+            <div>
+              <div style="font-weight:700;font-size:15px;">${s.fullName || 'Unknown'}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;">${s.timestamp} · Rego: ${s.rego || '—'}</div>
+            </div>
+            ${s.imported
+              ? '<span style="color:var(--accent);font-size:11px;">&#10003; Imported</span>'
+              : '<div style="display:flex;gap:8px;"><select id="fleet-select-' + idx + '" style="padding:6px 10px;font-size:12px;border-radius:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);"><option value="">Fleet?</option><option value="TBM">TBM</option><option value="XE">XE</option><option value="MKBAUS">MKBAUS Trust</option></select><button class="btn btn-primary btn-sm" onclick="importSubmission(' + idx + ')">+ Add to DB</button></div>'
+            }
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;">
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">PHONE</span><br>${s.phone || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">EMAIL</span><br>${s.email || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">DOB</span><br>${s.dob || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">LICENCE</span><br>${s.licenceNo || '—'} (${s.licenceState})</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">ADDRESS</span><br>${s.street}, ${s.suburb} ${s.postcode}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">START DATE</span><br>${s.startDate || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">RENT</span><br>$${s.rent || '—'}/wk · Bond $${s.bond || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">BANK</span><br>${s.bank || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">EMERGENCY</span><br>${s.emergName || '—'} (${s.emergRelation || '—'}) ${s.emergPhone || ''}</div>
+          </div>
+          <div style="margin-top:10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);">
+            ✓ Agreed to T&C · Signed: ${s.signature || '—'}
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  async function importSubmission(idx) {
+    const s = formSubmissions[idx];
+    const fleet = document.getElementById(`fleet-select-${idx}`)?.value || '';
+
+    const existingNos = allDrivers.map(d => parseInt(d.no)).filter(n => !isNaN(n));
+    const nextNo = existingNos.length ? Math.max(...existingNos) + 1 : 1;
+    const row = [
+      nextNo, s.fullName, s.email, s.phone,
+      s.street, s.suburb, s.postcode,
+      s.licenceNo, s.licenceState, s.dob,
+      s.rego, fleet, s.startDate, '',
+      s.rent, s.bond, s.bank, '', '', '', '',
+      '', s.licencePhotoFront || '', s.licencePhotoBack || ''
+    ];
+
+    showToast('Adding to database...', 'success');
+    const result = await sheetsCall('append', {
+      range: `${SHEET_TAB}!A1`,
+      values: [row]
+    });
+
+    if (result.updates || result.tableRange) {
+      formSubmissions[idx].imported = true;
+      showToast(`✓ ${s.fullName} added to database!`, 'success');
+      renderFormSubmissions();
+      await loadAllData();
+    } else {
+      showToast('Error adding driver. Check console.', 'error');
+      console.error(result);
+    }
+  }
+
+  // ── FINES ──────────────────────────────────────────────────────────────────
+  const FINES_SHEET = 'FINES';
+  const INSURANCE_SHEET = 'INSURANCE';
+  const ONBOARDING_SHEET_ID = '1cFnu1_1GHLvSxPU1cqWRNQyA3rCRm7-9_j41z9WeDPk';
+  const ONBOARDING_TAB = 'Form_Responses 1';
+  let allFines = [];
+  let allInsurance = []; // { rowIndex, rego, insurer, coverType }
+
+  async function loadFines() {
+    try {
+      const data = await sheetsCall('read', { range: `${FINES_SHEET}!A2:H2000` });
+      const rows = data.values || [];
+      allFines = rows.filter(r => r[0]).map((r, i) => ({
+        rowIndex: i + 2,
+        id: r[0] || '',
+        driver: r[1] || '',
+        rego: r[2] || '',
+        date: r[3] || '',
+        type: r[4] || '',
+        amount: parseFloat(r[5]) || 0,
+        status: r[6] || 'Pending',
+        notes: r[7] || '',
+        reference: r[8] || '',
+        dateNominated: r[9] || ''
+      }));
+      updateFinesStats();
+      renderFinesTable();
+    } catch(e) {
+      console.error('Fines load error:', e);
+    }
+  }
+
+  function updateFinesStats() {
+    const unpaid = allFines.filter(f => f.status === 'Pending');
+    const total = allFines.reduce((s, f) => s + f.amount, 0);
+    const unpaidAmt = unpaid.reduce((s, f) => s + f.amount, 0);
+    document.getElementById('fstat-total').textContent = allFines.length;
+    document.getElementById('fstat-unpaid').textContent = unpaid.length;
+    document.getElementById('fstat-amount').textContent = '$' + total.toLocaleString('en-AU', {minimumFractionDigits:2});
+    document.getElementById('fstat-unpaid-amount').textContent = '$' + unpaidAmt.toLocaleString('en-AU', {minimumFractionDigits:2});
+  }
+
+  function renderFinesTable() {
+    const driverFilter = (document.getElementById('fine-filter-driver')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('fine-filter-status')?.value || 'all';
+    let list = allFines.filter(f => {
+      const matchDriver = !driverFilter || f.driver.toLowerCase().includes(driverFilter);
+      const matchStatus = statusFilter === 'all' || f.status === statusFilter;
+      return matchDriver && matchStatus;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+
+    const el = document.getElementById('fines-list');
+    if (!list.length) {
+      el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;">No fines found.</div>';
+      return;
+    }
+    el.innerHTML = list.map(f => `
+      <div class="fine-row" style="grid-template-columns:1.5fr 2fr 1fr 1fr 1fr 1.2fr 80px;">
+        <div style="font-weight:600;">${f.driver}<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">${f.rego}</div></div>
+        <div style="font-size:12px;">${f.type}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;">${f.date}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">$${f.amount.toFixed(2)}</div>
+        <div>
+          <span class="${f.status === 'Nominated' ? 'fine-status-paid' : 'fine-status-unpaid'}">${f.status}</span>
+          ${f.reference ? '<div style="font-size:10px;color:var(--muted);margin-top:2px;">Ref: ' + f.reference + '</div>' : ''}
+          ${f.dateNominated ? '<div style="font-size:10px;color:var(--muted);">Nom: ' + f.dateNominated + '</div>' : ''}
+        </div>
+        <div style="display:flex;gap:4px;">
+          ${f.status === 'Pending' ? '<button class="btn btn-sm btn-primary" onclick="markFineNominated(' + f.rowIndex + ')" style="padding:4px 8px;font-size:11px;">Nominate</button>' : ''}
+          <button class="btn btn-sm btn-danger" onclick="deleteFine(' + f.rowIndex + ')" style="padding:4px 8px;font-size:11px;">✕</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+
+  // ── INSURANCE ──────────────────────────────────────────────────────────────
+  // Sheet columns: A=REGO, B=INSURER, C=COVER_TYPE
+  async function loadInsurance() {
+    try {
+      const data = await sheetsCall('read', { range: `${INSURANCE_SHEET}!A2:C1000` });
+      const rows = data.values || [];
+      allInsurance = rows
+        .filter(r => r[0])
+        .map((r, i) => ({
+          rowIndex: i + 2,
+          rego: (r[0] || '').toUpperCase(),
+          insurer: r[1] || '',
+          coverType: r[2] || ''
+        }));
+    } catch(e) {
+      console.warn('Insurance load error:', e);
+    }
+  }
+
+  function getInsuranceForRego(rego) {
+    return allInsurance.find(ins => ins.rego === rego.toUpperCase()) || null;
+  }
+
+  async function saveInsurance() {
+    const rego = (document.getElementById('ins-rego')?.value || '').trim().toUpperCase();
+    const insurer = (document.getElementById('ins-insurer')?.value || '').trim();
+    const coverType = document.getElementById('ins-cover')?.value || '';
+    if (!rego) { showToast('No rego found — try closing and reopening the driver.', 'error'); return; }
+
+    const existing = getInsuranceForRego(rego);
+    const row = [[rego.toUpperCase(), insurer, coverType]];
+
+    let result;
+    if (existing) {
+      // Update existing row
+      result = await sheetsCall('update', {
+        range: `${INSURANCE_SHEET}!A${existing.rowIndex}:C${existing.rowIndex}`,
+        values: row
+      });
+    } else {
+      // Write header row if this is the first entry
+      if (allInsurance.length === 0) {
+        await sheetsCall('update', {
+          range: `${INSURANCE_SHEET}!A1:C1`,
+          values: [['REGO', 'INSURER', 'COVER_TYPE']]
+        });
+      }
+      // Append new row
+      result = await sheetsCall('append', {
+        range: `${INSURANCE_SHEET}!A:C`,
+        values: row
+      });
+    }
+
+    if (result.updatedCells || result.updates || result.tableRange) {
+      showToast('✓ Insurance details saved', 'success');
+      await loadInsurance();
+      // Refresh the insurance display in modal without closing it
+      const insDisplay = document.getElementById('ins-saved-display');
+      if (insDisplay) {
+        insDisplay.innerHTML = renderInsuranceDisplay(rego);
+      }
+    } else {
+      showToast('Error saving insurance. Check console.', 'error');
+      console.error(result);
+    }
+  }
+
+  function renderInsuranceDisplay(rego) {
+    const ins = getInsuranceForRego(rego);
+    if (!ins || (!ins.insurer && !ins.coverType)) {
+      return '<div style="color:var(--muted);font-size:12px;font-family:\'DM Mono\',monospace;">No insurance on record.</div>';
+    }
+    const coverColour = ins.coverType === 'Comprehensive' ? 'var(--accent)' :
+                        ins.coverType === 'Third Party Property' ? 'var(--blue)' : 'var(--warning)';
+    return `
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Insurer</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;">${ins.insurer || '—'}</div>
+        </div>
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Cover Type</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:${coverColour};">${ins.coverType || '—'}</div>
+        </div>
+      </div>`;
+  }
+
+  function updateFineType() {
+    const authority = document.getElementById('fine-authority').value;
+    const typeSelect = document.getElementById('fine-type');
+    const isCouncil = authority.includes('Council') || authority.includes('City of');
+    // Auto-select parking type for council authorities
+    if (isCouncil) {
+      typeSelect.value = 'Parking — Overtime';
+    } else if (authority.includes('EastLink') || authority.includes('CityLink') || authority.includes('Ring Road')) {
+      typeSelect.value = 'Toll';
+    } else {
+      typeSelect.value = 'Speeding';
+    }
+  }
+
+  function searchFineDriver() {
+    const q = document.getElementById('fine-driver-search').value.toLowerCase();
+    const results = document.getElementById('fine-driver-results');
+    if (!q || q.length < 2) { results.style.display = 'none'; return; }
+    const matches = allDrivers.filter(d => d.name.toLowerCase().includes(q)).slice(0, 6);
+    if (!matches.length) { results.style.display = 'none'; return; }
+    results.style.display = 'block';
+    results.innerHTML = matches.map(d => `
+      <div onclick="selectFineDriver('${d.name.replace(/'/g,"\'")}','${d.rego}')"
+           style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;"
+           onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+        <strong>${d.name}</strong> <span style="color:var(--muted);font-size:11px;">${d.rego} · ${d.fleet}</span>
+      </div>
+    `).join('');
+  }
+
+  function selectFineDriver(name, rego) {
+    document.getElementById('fine-driver-search').value = name;
+    document.getElementById('fine-driver-name').value = name;
+    document.getElementById('fine-driver-rego').value = rego;
+    document.getElementById('fine-rego-display').value = rego;
+    document.getElementById('fine-driver-results').style.display = 'none';
+  }
+
+  async function logFine() {
+    const driver = document.getElementById('fine-driver-name').value.trim();
+    const rego = document.getElementById('fine-driver-rego').value.trim();
+    const date = document.getElementById('fine-date').value;
+    const amount = document.getElementById('fine-amount').value;
+    const authority = document.getElementById('fine-authority').value;
+    const type = document.getElementById('fine-type').value;
+    const status = document.getElementById('fine-paid').value;
+    const notes = document.getElementById('fine-notes').value.trim();
+
+    if (!driver || !date || !amount) {
+      showToast('Please select a driver, date and amount.', 'error');
+      return;
+    }
+
+    const reference = document.getElementById('fine-reference').value.trim();
+    const dateNominatedRaw = document.getElementById('fine-date-nominated').value;
+    const id = 'F' + Date.now();
+    const fullType = authority ? `${authority} — ${type}` : type;
+    // Format dates as DD/MM/YYYY so Google Sheets stores as text not serial number
+    function fmtDate(d) {
+      if (!d) return '';
+      const [y,m,dd] = d.split('-');
+      return "'" + dd + '/' + m + '/' + y;
+    }
+    const row = [id, driver, rego, fmtDate(date), fullType, amount, status, notes, reference, fmtDate(dateNominatedRaw)];
+
+    showToast('Logging fine...', 'success');
+    try {
+      // Check if FINES sheet exists, create header if first entry
+      if (allFines.length === 0) {
+        await sheetsCall('update', {
+          range: `${FINES_SHEET}!A1:H1`,
+          values: [['ID', 'DRIVER', 'REGO', 'DATE', 'TYPE', 'AMOUNT', 'STATUS', 'NOTES', 'REFERENCE', 'DATE_NOMINATED']]
+        });
+      }
+      const result = await sheetsCall('append', {
+        range: `${FINES_SHEET}!A:H`,
+        values: [row]
+      });
+      if (result.updates || result.tableRange) {
+        showToast('✓ Fine logged!', 'success');
+        document.getElementById('fine-driver-search').value = '';
+        document.getElementById('fine-driver-name').value = '';
+        document.getElementById('fine-driver-rego').value = '';
+        document.getElementById('fine-rego-display').value = '';
+        document.getElementById('fine-date').value = '';
+        document.getElementById('fine-amount').value = '';
+        document.getElementById('fine-notes').value = '';
+        document.getElementById('fine-reference').value = '';
+        document.getElementById('fine-date-nominated').value = '';
+        await loadFines();
+      } else {
+        showToast('Error logging fine.', 'error');
+      }
+    } catch(e) {
+      showToast('Error: ' + e.message, 'error');
+    }
+  }
+
+  async function markFineNominated(rowIndex) {
+    const ref = prompt('Enter nomination reference number (optional):') || '';
+    const todayRaw = new Date();
+    const today = "'" + String(todayRaw.getDate()).padStart(2,'0') + '/' + String(todayRaw.getMonth()+1).padStart(2,'0') + '/' + todayRaw.getFullYear();
+    await sheetsCall('update', {
+      range: `${FINES_SHEET}!G${rowIndex}:J${rowIndex}`,
+      values: [['Nominated', '', ref, today]]
+    });
+    showToast('✓ Marked as nominated', 'success');
+    await loadFines();
+  }
+
+  async function deleteFine(rowIndex) {
+    if (!confirm('Delete this fine record?')) return;
+    await sheetsCall('update', {
+      range: `${FINES_SHEET}!A${rowIndex}:H${rowIndex}`,
+      values: [['', '', '', '', '', '', '', '']]
+    });
+    showToast('Fine deleted', 'success');
+    await loadFines();
+  }
+
+  // ── SETTINGS ───────────────────────────────────────────────────────────────
+  function loadSettingsForm() {
+    const b = getBusiness();
+    document.getElementById('s-tbm-name').value = b.TBM.name || '';
+    document.getElementById('s-tbm-acn').value = b.TBM.acn || '';
+    document.getElementById('s-tbm-address').value = b.TBM.address || '';
+    document.getElementById('s-tbm-director').value = b.TBM.director || '';
+    document.getElementById('s-tbm-position').value = b.TBM.position || '';
+    document.getElementById('s-xe-name').value = b.XE.name || '';
+    document.getElementById('s-xe-acn').value = b.XE.acn || '';
+    document.getElementById('s-xe-address').value = b.XE.address || '';
+    document.getElementById('s-xe-director').value = b.XE.director || '';
+    document.getElementById('s-xe-position').value = b.XE.position || '';
+  }
+
+  function saveSettings() {
+    const settings = {
+      TBM: {
+        name: document.getElementById('s-tbm-name').value.trim(),
+        acn: document.getElementById('s-tbm-acn').value.trim(),
+        address: document.getElementById('s-tbm-address').value.trim(),
+        director: document.getElementById('s-tbm-director').value.trim(),
+        position: document.getElementById('s-tbm-position').value.trim()
+      },
+      XE: {
+        name: document.getElementById('s-xe-name').value.trim(),
+        acn: document.getElementById('s-xe-acn').value.trim(),
+        address: document.getElementById('s-xe-address').value.trim(),
+        director: document.getElementById('s-xe-director').value.trim(),
+        position: document.getElementById('s-xe-position').value.trim()
+      }
+    };
+    localStorage.setItem('tbm_business_settings', JSON.stringify(settings));
+    showToast('✓ Settings saved', 'success');
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      const tabs = ['lookup', 'drivers', 'vehicle', 'cars', 'add', 'fines', 'settings', 'import'];
+      t.classList.toggle('active', tabs[i] === tab);
+    });
+    ['lookup', 'drivers', 'vehicle', 'cars', 'add', 'fines', 'settings', 'import'].forEach(t => {
+      document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
+    });
+    if (tab === 'fines') loadFines();
+    if (tab === 'settings') loadSettingsForm();
+    if (tab === 'cars') loadCars();
+  }
+
+  // ── Vehicle Search ─────────────────────────────────────────────────────────
+  function searchVehicle() {
+    const query = document.getElementById('vehicle-search-input').value.trim().toUpperCase();
+    const el = document.getElementById('vehicle-search-results');
+    if (!query) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">Enter a rego to search.</div>'; return; }
+
+    // Match any driver whose rego contains the query (split multi-rego entries by dash/comma/space)
+    const matches = allDrivers
+      .filter(d => {
+        const regos = d.rego.toUpperCase().split(/[-,\/\s]+/).map(r => r.trim()).filter(Boolean);
+        return regos.some(r => r.includes(query)) || d.rego.toUpperCase().includes(query);
+      })
+      .sort((a, b) => {
+        // Active first, then by start date descending (most recent top)
+        if (a.isActive && !b.isActive) return -1;
+        if (!a.isActive && b.isActive) return 1;
+        return (b.startDate || '').localeCompare(a.startDate || '');
+      });
+
+    if (!matches.length) {
+      el.innerHTML = `<div style="color:var(--muted);font-size:13px;">No drivers found for rego <strong style="color:var(--text);">${query}</strong>.</div>`;
+      return;
+    }
+
+    const regoDisplay = matches[0]?.rego || query;
+    el.innerHTML = `
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">
+        ${matches.length} driver record${matches.length !== 1 ? 's' : ''} for ${regoDisplay}
+      </div>
+      ${matches.map((d, i) => `
+        <div style="background:var(--surface2);border:1px solid ${d.isActive ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:border-color 0.2s;"
+             onclick="openDriverModal(${d.rowIndex})">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:14px;margin-bottom:4px;">
+                ${i === 0 && d.isActive ? '<span style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--accent);margin-right:8px;">● CURRENT</span>' : ''}
+                ${d.name}
+              </div>
+              <div style="font-size:12px;color:var(--muted);">${d.phone || '—'} · ${d.email || '—'}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">${d.startDate || '—'} → ${d.endDate || 'Present'}</div>
+              ${d.handoffTime ? `<div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Handoff: ${d.handoffTime}</div>` : ''}
+              <div style="margin-top:4px;">${d.isActive ? '<span class="status-active">● Active</span>' : '<span class="status-ended">○ Ended</span>'}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;margin-top:10px;font-size:12px;border-top:1px solid var(--border);padding-top:10px;">
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">FLEET</span><br>${d.fleet || '—'}</div>
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">RENT</span><br>$${d.rent || '—'}/wk</div>
+            ${d.rentDue ? `<div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">DUE</span><br>${d.rentDue}</div>` : ''}
+            <div><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;">LICENCE</span><br>${d.licenceNo || '—'}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────────
+  function showToast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${type} show`;
+    setTimeout(() => t.classList.remove('show'), 4000);
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  document.getElementById('driver-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  loadAllData();
+  loadInsurance();
+
+  // ── Import Engine ──────────────────────────────────────────────────────────
+
+  let importRecords = []; // merged records pending review
+
+  // Fuzzy name match — returns 0-100 score
+  function nameSimilarity(a, b) {
+    if (!a || !b) return 0;
+    a = a.toUpperCase().trim();
+    b = b.toUpperCase().trim();
+    if (a === b) return 100;
+
+    // Check if one contains the other
+    if (a.includes(b) || b.includes(a)) return 85;
+
+    // Split into words, check overlap
+    const wa = a.split(/ +/);
+    const wb = b.split(/ +/);
+    let matches = 0;
+    for (const w of wa) {
+      if (w.length < 2) continue;
+      if (wb.some(x => x.startsWith(w) || w.startsWith(x))) matches++;
+    }
+    const score = Math.round((matches / Math.max(wa.length, wb.length)) * 100);
+    return score;
+  }
+
+  function bestMatch(name, candidates) {
+    let best = null, bestScore = 0;
+    for (const c of candidates) {
+      const score = nameSimilarity(name, c.name || c[1] || '');
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+    return { match: best, score: bestScore };
+  }
+
+  async function startImport() {
+    const btn = document.getElementById('import-btn');
+    btn.disabled = true;
+    btn.textContent = 'Pulling data...';
+    document.getElementById('import-progress').style.display = 'block';
+    document.getElementById('import-results').innerHTML = '';
+    importRecords = [];
+
+    const setStatus = (msg, pct) => {
+      document.getElementById('import-status').textContent = msg;
+      document.getElementById('import-bar').style.width = pct + '%';
+    };
+
+    try {
+      // ── Step 1: Pull QB invoices ──
+      setStatus('Fetching QuickBooks invoices...', 10);
+      const savedCreds = localStorage.getItem('tbm_credentials');
+      const savedToken = localStorage.getItem('tbm_access_token');
+      if (!savedToken || !savedCreds) {
+        document.getElementById('import-results').innerHTML = `
+          <div style="background:rgba(255,77,77,0.1);border:1px solid var(--danger);border-radius:8px;padding:16px;color:var(--danger);font-family:'DM Mono',monospace;font-size:13px;">
+            ✗ Not connected to QuickBooks. Open the Fleet Manager app first to connect, then come back here.
+          </div>`;
+        btn.disabled = false;
+        btn.textContent = '⬇ Pull Data from QuickBooks';
+        return;
+      }
+
+      const creds = JSON.parse(savedCreds);
+
+      async function qbCall(query) {
+        const res = await fetch('https://tbm-fleet-auth.mikasafanboy101.workers.dev/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'qb', method: 'GET',
+            accessToken: savedToken, realmId: creds.realmId,
+            query
+          })
+        });
+        return res.json();
+      }
+
+      // Pull invoices in batches (QB max 1000 per query)
+      setStatus('Fetching all invoices from QuickBooks...', 15);
+      const invData = await qbCall('SELECT Id, DocNumber, CustomerRef, CustomField, Line FROM Invoice MAXRESULTS 300');
+      const invoices = invData?.QueryResponse?.Invoice || [];
+      setStatus(`Got ${invoices.length} invoices from QuickBooks`, 30);
+
+      // Extract data from each invoice
+      const qbDrivers = [];
+      for (const inv of invoices) {
+        const name = inv.CustomerRef?.name || '';
+        const rego = inv.CustomField?.find(f => f.Name === 'VEHICLE REGO')?.StringValue || '';
+        const dayMethod = inv.CustomField?.find(f => f.Name === 'DAY / METHOD')?.StringValue || '';
+        const rent = inv.CustomField?.find(f => f.Name === 'RENT AMOUNT $')?.StringValue || '';
+        const fleet = dayMethod.includes('TBM') ? 'TBM' : dayMethod.includes('XE') || dayMethod.includes('XEBEC') ? 'XE' : '';
+
+        // Find first service date = start date
+        const lines = (inv.Line || []).filter(l => l.DetailType === 'SalesItemLineDetail');
+        const dates = lines.map(l => l.SalesItemLineDetail?.ServiceDate).filter(Boolean).sort();
+        const startDate = dates[0] || '';
+
+        if (name) {
+          qbDrivers.push({ name, rego, dayMethod, rent, fleet, startDate, invId: inv.Id, invNo: inv.DocNumber });
+        }
+      }
+
+      setStatus(`Extracted ${qbDrivers.length} drivers from QB invoices`, 45);
+
+      // ── Step 2: Pull payments sheet ──
+      setStatus('Reading payments sheet...', 50);
+      const payData = await sheetsCall('read', {
+        range: 'Sheet1!B4:F200',
+        spreadsheetId: '1mumgu7yovyFl0rFy6yex1NS9YD44t2US5B1uMA6ZNFI'
+      });
+      const payRows = (payData.values || []).filter(r => r[1]); // col B=REGO, C=NAME, D=DATE/DAY, E=BANK/RENT
+      // payments sheet: row format is [fleet, rego, name, date/day, bank/rent]
+      // Actually from the paste: col B=rego (index1 in range B:F = index0), C=name(1), D=date(2), E=bank(3)
+      const payDrivers = payRows.map(r => ({
+        rego: (r[0] || '').toUpperCase().trim(),
+        name: (r[1] || '').toUpperCase().trim(),
+        dateDay: r[2] || '',
+        bankRent: r[3] || ''
+      })).filter(r => r.name);
+
+      setStatus(`Got ${payDrivers.length} rows from payments sheet`, 60);
+
+      // ── Step 3: Pull drivers details sheet ──
+      setStatus('Reading drivers details sheet...', 65);
+      const driverData = await sheetsCall('read', {
+        range: 'PARTNERS!A2:G500',
+        spreadsheetId: '1HwdnemR3ogHRwrEtV0DZTjk0aL2f-Smg1jPPSvek6lQ'
+      });
+      const detailDrivers = (driverData.values || [])
+        .filter(r => r[1])
+        .map(r => ({
+          name: (r[1] || '').toUpperCase().trim(),
+          email: r[2] || '',
+          phone: r[3] || '',
+          street: r[4] || '',
+          suburb: r[5] || '',
+          postcode: r[6] || ''
+        }));
+
+      setStatus(`Got ${detailDrivers.length} rows from drivers details sheet`, 75);
+
+      // ── Step 4: Merge ──
+      setStatus('Matching and merging records...', 80);
+
+      importRecords = qbDrivers.map(qb => {
+        // Match against payments sheet by rego first, then name
+        let payMatch = payDrivers.find(p => p.rego && p.rego === qb.rego.toUpperCase());
+        let payScore = payMatch ? 90 : 0;
+        if (!payMatch) {
+          const nm = bestMatch(qb.name, payDrivers);
+          if (nm.score >= 60) { payMatch = nm.match; payScore = nm.score; }
+        }
+
+        // Match against details sheet by name
+        const detailMatch = bestMatch(qb.name, detailDrivers);
+
+        // Extract bank from payments sheet bankRent field (e.g. "ANZ / $280")
+        const bank = payMatch?.bankRent?.split('/')?.[0]?.trim() || '';
+
+        return {
+          selected: true,
+          qbName: qb.name,
+          rego: qb.rego,
+          fleet: qb.fleet || (payMatch ? '' : ''),
+          startDate: qb.startDate,
+          rent: qb.rent,
+          dayMethod: qb.dayMethod,
+          bank,
+          invNo: qb.invNo,
+          // From payments sheet
+          payMatchName: payMatch?.name || '',
+          payScore,
+          // From details sheet
+          phone: detailMatch.score >= 55 ? detailMatch.match?.phone || '' : '',
+          email: detailMatch.score >= 55 ? detailMatch.match?.email || '' : '',
+          street: detailMatch.score >= 55 ? detailMatch.match?.street || '' : '',
+          suburb: detailMatch.score >= 55 ? detailMatch.match?.suburb || '' : '',
+          postcode: detailMatch.score >= 55 ? detailMatch.match?.postcode || '' : '',
+          detailMatchName: detailMatch.score >= 55 ? detailMatch.match?.name || '' : '',
+          detailScore: detailMatch.score
+        };
+      });
+
+      setStatus(`Merged ${importRecords.length} records — review below`, 100);
+
+      renderImportReview();
+      document.getElementById('confirm-btn').style.display = 'inline-flex';
+
+    } catch(e) {
+      document.getElementById('import-results').innerHTML = `<div style="color:var(--danger);font-family:'DM Mono',monospace;">${e.message}</div>`;
+      console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '↻ Re-pull Data';
+  }
+
+  function renderImportReview() {
+    const highConf = importRecords.filter(r => r.detailScore >= 70 || (!r.detailMatchName));
+    const lowConf = importRecords.filter(r => r.detailMatchName && r.detailScore < 70);
+
+    const renderRow = (r, i) => {
+      const idx = importRecords.indexOf(r);
+      const confColor = r.detailScore >= 80 ? 'var(--accent)' : r.detailScore >= 60 ? 'var(--warning)' : 'var(--danger)';
+      return `<tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:8px 10px;"><input type="checkbox" ${r.selected ? 'checked' : ''} onchange="importRecords[${idx}].selected=this.checked" style="accent-color:var(--accent);width:14px;height:14px;"></td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;">${r.qbName}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;">${r.rego || '—'}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;">${r.fleet || '—'}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;">${r.startDate || '—'}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:12px;">${r.rent ? '$'+r.rent : '—'}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:11px;color:${confColor};">${r.detailMatchName ? r.detailMatchName + ' (' + r.detailScore + '%)' : '—'}</td>
+        <td style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">${r.phone || '—'}</td>
+      </tr>`;
+    };
+
+    document.getElementById('import-results').innerHTML = `
+      <div style="margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">${importRecords.filter(r=>r.selected).length} selected</span>
+        <button class="btn btn-secondary btn-sm" onclick="importRecords.forEach(r=>r.selected=true);renderImportReview()">Select all</button>
+        <button class="btn btn-secondary btn-sm" onclick="importRecords.forEach(r=>r.selected=false);renderImportReview()">Deselect all</button>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Tick the ones to import. Uncheck any you want to skip or manually fix first.</span>
+      </div>
+      <div style="overflow-x:auto;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">
+        <table style="width:100%;border-collapse:collapse;min-width:900px;">
+          <thead>
+            <tr style="background:var(--surface);">
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">✓</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">QB Name</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Rego</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Fleet</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Start Date</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Rent</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Details Match</th>
+              <th style="padding:8px 10px;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-align:left;text-transform:uppercase;">Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${importRecords.map(renderRow).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  async function confirmImport() {
+    const toWrite = importRecords.filter(r => r.selected);
+    if (!toWrite.length) { showToast('No records selected.', 'error'); return; }
+    if (!confirm(`Write ${toWrite.length} driver records to the PARTNERS sheet? This will append rows — existing data won't be deleted.`)) return;
+
+    document.getElementById('confirm-btn').disabled = true;
+    document.getElementById('confirm-btn').textContent = 'Writing...';
+
+    const existingNos = allDrivers.map(d => parseInt(d.no)).filter(n => !isNaN(n));
+    let nextNo = existingNos.length ? Math.max(...existingNos) + 1 : 1;
+
+    const rows = toWrite.map((r) => [
+      nextNo++,
+      r.qbName, r.email, r.phone, r.street, r.suburb, r.postcode,
+      '', // licence no — to fill in manually
+      'VIC', // licence state default
+      '', // DOB — to fill in manually
+      r.rego, r.fleet, r.startDate, '', // end date blank = active
+      r.rent, '', r.bank, '', `Imported from QB Invoice #${r.invNo}`
+    ]);
+
+    const result = await sheetsCall('append', {
+      range: `${SHEET_TAB}!A1`,
+      values: rows
+    });
+
+    if (result.updates || result.updatedRange) {
+      showToast(`✓ ${toWrite.length} drivers imported to database!`, 'success');
+      document.getElementById('confirm-btn').textContent = '✓ Done';
+      await loadAllData();
+    } else {
+      showToast('Error writing to sheet. Check console.', 'error');
+      console.error(result);
+      document.getElementById('confirm-btn').disabled = false;
+      document.getElementById('confirm-btn').textContent = '✓ Write Selected to Database';
+    }
+  }
+
+  // ── Cars ────────────────────────────────────────────────────────────────────
+
+  async function loadCars() {
+    const el = document.getElementById('cars-list');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div> Loading cars...</div>';
+    const data = await sheetsCall('read', { range: `${CARS_SHEET}!A2:Q2000` });
+    if (data.error) { el.innerHTML = '<div class="empty">Failed to load cars.</div>'; return; }
+    const rows = data.values || [];
+    allCars = rows
+      .map((r, i) => ({ _actualRow: i + 2, _r: r }))
+      .filter(({ _r: r }) => r[CARS_COL.REGO] && r[CARS_COL.REGO].trim())
+      .map(({ _actualRow, _r: r }) => ({
+        rowIndex: _actualRow,
+        no: r[CARS_COL.NO] || '',
+        company: r[CARS_COL.COMPANY] || '',
+        rego: r[CARS_COL.REGO] || '',
+        vin: r[CARS_COL.VIN] || '',
+        year: r[CARS_COL.YEAR] || '',
+        make: r[CARS_COL.MAKE] || '',
+        model: r[CARS_COL.MODEL] || '',
+        colour: r[CARS_COL.COLOUR] || '',
+        shape: r[CARS_COL.SHAPE] || '',
+        purchaseDate: r[CARS_COL.PURCHASE_DATE] || '',
+        purchasePrice: r[CARS_COL.PURCHASE_PRICE] || '',
+        boughtFrom: r[CARS_COL.BOUGHT_FROM] || '',
+        origin: r[CARS_COL.ORIGIN] || '',
+        condition: r[CARS_COL.CONDITION] || '',
+        odometerIn: r[CARS_COL.ODOMETER_IN] || '',
+        odometerAdjusted: r[CARS_COL.ODOMETER_ADJUSTED] || '',
+        notes: r[CARS_COL.NOTES] || ''
+      }));
+    updateCarStats();
+    renderCars();
+  }
+
+  function updateCarStats() {
+    document.getElementById('cstat-total').textContent = allCars.length;
+    document.getElementById('cstat-tbm').textContent = allCars.filter(c => c.company === 'TBM').length;
+    document.getElementById('cstat-xe').textContent = allCars.filter(c => c.company === 'XE').length;
+    document.getElementById('cstat-mkbaus').textContent = allCars.filter(c => c.company === 'MKBAUS').length;
+  }
+
+  function renderCars() {
+    const el = document.getElementById('cars-list');
+    const q = (document.getElementById('car-search').value || '').toLowerCase();
+    const company = document.getElementById('car-company-filter').value;
+
+    let filtered = allCars.filter(c => {
+      const matchQ = !q || c.rego.toLowerCase().includes(q) ||
+        c.make.toLowerCase().includes(q) || c.model.toLowerCase().includes(q) ||
+        c.colour.toLowerCase().includes(q) || c.vin.toLowerCase().includes(q);
+      const matchCompany = company === 'all' || c.company === company;
+      return matchQ && matchCompany;
+    });
+
+    if (!filtered.length) { el.innerHTML = '<div class="empty">No cars found.</div>'; return; }
+
+    el.innerHTML = filtered.map(c => {
+      const regoUpper = c.rego.toUpperCase();
+      const currentDriver = allDrivers.find(d =>
+        d.isActive && d.rego.toUpperCase().split('-').map(x => x.trim()).includes(regoUpper)
+      );
+      const isAvailable = !currentDriver;
+      const companyColour = c.company === 'TBM' ? 'var(--accent)' : c.company === 'XE' ? 'var(--blue)' : 'var(--warning)';
+      return `
+        <div class="driver-card" style="cursor:pointer;" onclick="openCarModal(${c.rowIndex})">
+          <div style="flex:1;">
+            <div class="driver-name">${c.rego} <span style="font-size:12px;color:${companyColour};margin-left:6px;">${c.company}</span></div>
+            <div class="driver-meta">${[c.year, c.make, c.model].filter(Boolean).join(' ') || '—'} · ${c.colour || '—'}</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px;color:var(--muted);">${c.shape || '—'}</div>
+            <div class="driver-meta" style="margin-top:2px;">${c.condition || '—'}</div>
+          </div>
+          <div style="flex:1;">
+            ${currentDriver
+              ? `<div style="font-size:12px;color:var(--warning);">● ${currentDriver.name}</div><div class="driver-meta">Since ${currentDriver.startDate || '?'}</div>`
+              : `<div style="font-size:12px;color:var(--accent);">● Available</div>`
+            }
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            ${isAvailable
+              ? '<span class="status-active">● Free</span>'
+              : '<span class="status-ended">○ In Use</span>'}
+            <button class="btn btn-danger" onclick="event.stopPropagation();deleteCar(${c.rowIndex},'${c.rego}')" style="padding:4px 10px;font-size:11px;">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function openCarModal(rowIndex) {
+    const c = allCars.find(x => x.rowIndex === rowIndex);
+    if (!c) return;
+    document.getElementById('car-modal-title').textContent = `${c.rego} — ${c.make} ${c.model}`;
+
+    const regoUpper = c.rego.toUpperCase();
+    const history = allDrivers
+      .filter(d => d.rego.toUpperCase().split('-').map(x => x.trim()).includes(regoUpper))
+      .sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
+
+    document.getElementById('car-modal-body').innerHTML = `
+      <div style="padding:20px 24px;display:flex;flex-direction:column;gap:20px;">
+        <div>
+          <div class="card-title" style="margin-bottom:12px;">Edit Details</div>
+          <div class="form-grid">
+            <div class="form-group"><label>Company</label>
+              <select id="cedit-company">
+                <option value="TBM" ${c.company==='TBM'?'selected':''}>TBM</option>
+                <option value="XE" ${c.company==='XE'?'selected':''}>XE</option>
+                <option value="MKBAUS" ${c.company==='MKBAUS'?'selected':''}>MKBAUS Trust</option>
+              </select>
+            </div>
+            <div class="form-group"><label>Rego</label>
+              <input id="cedit-rego" value="${c.rego}" style="text-transform:uppercase;" />
+            </div>
+            <div class="form-group"><label>VIN</label>
+              <input id="cedit-vin" value="${c.vin}" />
+            </div>
+            <div class="form-group"><label>Year</label>
+              <input id="cedit-year" value="${c.year}" />
+            </div>
+            <div class="form-group"><label>Make</label>
+              <input id="cedit-make" value="${c.make}" style="text-transform:uppercase;" />
+            </div>
+            <div class="form-group"><label>Model</label>
+              <input id="cedit-model" value="${c.model}" style="text-transform:uppercase;" />
+            </div>
+            <div class="form-group"><label>Colour</label>
+              <input id="cedit-colour" value="${c.colour}" style="text-transform:uppercase;" />
+            </div>
+            <div class="form-group"><label>Body Shape</label>
+              <select id="cedit-shape">
+                <option value="">— Select —</option>
+                ${['Sedan','SUV','Hatchback','Wagon','Ute','Van','Coupe','Other'].map(s =>
+                  `<option ${c.shape===s?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Purchase Date</label>
+              <input type="date" id="cedit-purchase-date" value="${c.purchaseDate}" />
+            </div>
+            <div class="form-group"><label>Purchase Price ($)</label>
+              <input type="number" id="cedit-purchase-price" value="${c.purchasePrice}" />
+            </div>
+            <div class="form-group"><label>Bought From</label>
+              <input id="cedit-bought-from" value="${c.boughtFrom}" />
+            </div>
+            <div class="form-group"><label>Origin</label>
+              <input id="cedit-origin" value="${c.origin}" />
+            </div>
+            <div class="form-group"><label>Condition</label>
+              <select id="cedit-condition">
+                <option value="">— Select —</option>
+                ${['Excellent','Good','Fair','Poor','Damaged'].map(s =>
+                  `<option ${c.condition===s?'selected':''}>${s}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group"><label>Odometer In (km)</label>
+              <input type="number" id="cedit-odometer-in" value="${c.odometerIn}" />
+            </div>
+            <div class="form-group"><label>Odometer Adjusted (km)</label>
+              <input type="number" id="cedit-odometer-adjusted" value="${c.odometerAdjusted}" />
+            </div>
+            <div class="form-group full"><label>Notes</label>
+              <textarea id="cedit-notes" rows="2" style="resize:vertical;">${c.notes}</textarea>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:12px;">
+            <button class="btn btn-primary" onclick="saveCarEdits(${rowIndex})" style="flex:1;justify-content:center;">Save Changes</button>
+            <button class="btn btn-danger" onclick="deleteCar(${rowIndex},'${c.rego}');document.getElementById('car-modal').classList.remove('open')">Delete Car</button>
+          </div>
+        </div>
+        ${history.length ? `
+        <div>
+          <div class="card-title" style="margin-bottom:12px;">Driver History (${history.length})</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            ${history.map(d => `
+              <div style="background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-weight:600;font-size:13px;">${d.name}</div>
+                  <div style="font-size:11px;color:var(--muted);margin-top:2px;">${d.phone || '—'} · ${d.email || '—'}</div>
+                </div>
+                <div style="text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
+                  ${d.startDate || '?'} → ${d.endDate || 'Present'}
+                  ${d.isActive ? '<div style="color:var(--accent);margin-top:2px;">● Active</div>' : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+      </div>`;
+    document.getElementById('car-modal').classList.add('open');
+  }
+
+  async function saveCarEdits(rowIndex) {
+    const c = allCars.find(x => x.rowIndex === rowIndex);
+    if (!c) return;
+
+    const existingNos = allCars.map(x => parseInt(x.no)).filter(n => !isNaN(n));
+    const no = c.no || (existingNos.length ? Math.max(...existingNos) : 0);
+
+    const values = [[
+      no,
+      document.getElementById('cedit-company').value,
+      document.getElementById('cedit-rego').value.toUpperCase(),
+      document.getElementById('cedit-vin').value,
+      document.getElementById('cedit-year').value,
+      document.getElementById('cedit-make').value.toUpperCase(),
+      document.getElementById('cedit-model').value.toUpperCase(),
+      document.getElementById('cedit-colour').value.toUpperCase(),
+      document.getElementById('cedit-shape').value,
+      document.getElementById('cedit-purchase-date').value,
+      document.getElementById('cedit-purchase-price').value,
+      document.getElementById('cedit-bought-from').value,
+      document.getElementById('cedit-origin').value,
+      document.getElementById('cedit-condition').value,
+      document.getElementById('cedit-odometer-in').value,
+      document.getElementById('cedit-odometer-adjusted').value,
+      document.getElementById('cedit-notes').value
+    ]];
+
+    const result = await sheetsCall('update', {
+      range: `${CARS_SHEET}!A${rowIndex}:Q${rowIndex}`,
+      values
+    });
+    if (result.error) { showToast('Error saving car.', 'error'); return; }
+
+    const updated = {
+      rowIndex, no,
+      company: values[0][1], rego: values[0][2], vin: values[0][3],
+      year: values[0][4], make: values[0][5], model: values[0][6],
+      colour: values[0][7], shape: values[0][8], purchaseDate: values[0][9],
+      purchasePrice: values[0][10], boughtFrom: values[0][11], origin: values[0][12],
+      condition: values[0][13], odometerIn: values[0][14], odometerAdjusted: values[0][15],
+      notes: values[0][16]
+    };
+    allCars = allCars.map(x => x.rowIndex === rowIndex ? updated : x);
+    updateCarStats();
+    renderCars();
+    document.getElementById('car-modal-title').textContent = `${updated.rego} — ${updated.make} ${updated.model}`;
+    showToast('✓ Car saved.', 'success');
+  }
+
+  async function addCar() {
+    const rego = document.getElementById('cadd-rego').value.trim().toUpperCase();
+    const company = document.getElementById('cadd-company').value;
+    if (!rego) { showToast('Rego is required.', 'error'); return; }
+
+    const existingNos = allCars.map(c => parseInt(c.no)).filter(n => !isNaN(n));
+    const nextNo = existingNos.length ? Math.max(...existingNos) + 1 : 1;
+
+    const row = [[
+      nextNo, company, rego,
+      document.getElementById('cadd-vin').value,
+      document.getElementById('cadd-year').value,
+      document.getElementById('cadd-make').value.toUpperCase(),
+      document.getElementById('cadd-model').value.toUpperCase(),
+      document.getElementById('cadd-colour').value.toUpperCase(),
+      document.getElementById('cadd-shape').value,
+      document.getElementById('cadd-purchase-date').value,
+      document.getElementById('cadd-purchase-price').value,
+      document.getElementById('cadd-bought-from').value,
+      document.getElementById('cadd-origin').value,
+      document.getElementById('cadd-condition').value,
+      document.getElementById('cadd-odometer-in').value,
+      document.getElementById('cadd-odometer-adjusted').value,
+      document.getElementById('cadd-car-notes').value
+    ]];
+
+    const result = await sheetsCall('append', { range: `${CARS_SHEET}!A1`, values: row });
+    if (result.error) { showToast('Error adding car.', 'error'); return; }
+
+    const appendedRow = result.updates?.updatedRange?.match(/\d+$/);
+    const newRowIndex = appendedRow ? parseInt(appendedRow[0]) : (allCars.length ? Math.max(...allCars.map(c => c.rowIndex)) + 1 : 2);
+
+    allCars.push({
+      rowIndex: newRowIndex, no: nextNo, company, rego,
+      vin: row[0][3], year: row[0][4], make: row[0][5], model: row[0][6],
+      colour: row[0][7], shape: row[0][8], purchaseDate: row[0][9],
+      purchasePrice: row[0][10], boughtFrom: row[0][11], origin: row[0][12],
+      condition: row[0][13], odometerIn: row[0][14], odometerAdjusted: row[0][15],
+      notes: row[0][16]
+    });
+
+    updateCarStats();
+    renderCars();
+
+    // Clear form
+    ['cadd-rego','cadd-vin','cadd-year','cadd-make','cadd-model','cadd-colour',
+     'cadd-purchase-date','cadd-purchase-price','cadd-bought-from','cadd-origin',
+     'cadd-odometer-in','cadd-odometer-adjusted','cadd-car-notes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('cadd-shape').value = '';
+    document.getElementById('cadd-condition').value = '';
+
+    showToast(`✓ ${rego} added to fleet!`, 'success');
+  }
+
+  async function deleteCar(rowIndex, rego) {
+    if (!confirm(`Remove ${rego} from the fleet? This cannot be undone.`)) return;
+    const result = await sheetsCall('update', {
+      range: `${CARS_SHEET}!A${rowIndex}:Q${rowIndex}`,
+      values: [Array(17).fill('')]
+    });
+    if (result.error) { showToast('Error deleting car.', 'error'); return; }
+    allCars = allCars.filter(c => c.rowIndex !== rowIndex);
+    updateCarStats();
+    renderCars();
+    showToast(`✓ ${rego} removed from fleet.`, 'success');
+  }
+</script>
+</body>
+</html>
